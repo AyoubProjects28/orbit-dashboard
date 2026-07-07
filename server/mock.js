@@ -1,33 +1,48 @@
-// Generates mock metrics matching the /api/metrics schema (see PLAN §5).
-// No real hardware, network, or MCP calls happen here — every value is
-// randomized around a realistic baseline so the dashboard has something
-// to show before the real MCP (mcp-test01) is wired in.
+// Mock metrics state (see PLAN §5 for the schema).
+//
+// Hardware (GPU/CPU/RAM) stays PASSIVE: randomized fresh on every call,
+// simulating shared infrastructure that fluctuates on its own.
+//
+// Latency/tokens/cost are EVENT-DRIVEN: they only change when a chat turn
+// happens (see recordChatTurn, called from the /api/chat route). This keeps
+// the demo honest — those numbers move because you sent a message, not
+// because of background noise.
 
-const SERIES_LENGTH = 10; // number of points per time series
-const SERIES_STEP_MS = 60 * 1000; // 1 minute between points
+const MAX_SERIES_POINTS = 20
 
-function randomBetween(min, max) {
-  return min + Math.random() * (max - min);
+const state = {
+  totalCostUsd: 0,
+  totalTokens: 0,
+  lastPromptTokens: 0,
+  lastCompletionTokens: 0,
+  lastLatencyMs: 0,
+  lastCostPerRequestUsd: 0,
+  latencySeries: [],
+  costSeries: [],
 }
 
-// Builds a short time series ending "now", with values wobbling around `base`.
-function buildSeries(now, base, spread, decimals = 0) {
-  const points = [];
-  for (let i = SERIES_LENGTH - 1; i >= 0; i--) {
-    const t = new Date(now.getTime() - i * SERIES_STEP_MS).toISOString();
-    const value = Number(randomBetween(base - spread, base + spread).toFixed(decimals));
-    points.push([t, value]);
-  }
-  return points;
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min)
+}
+
+export function recordChatTurn({ promptTokens, completionTokens, latencyMs, costUsd }) {
+  const now = new Date().toISOString()
+
+  state.totalCostUsd += costUsd
+  state.totalTokens += promptTokens + completionTokens
+  state.lastPromptTokens = promptTokens
+  state.lastCompletionTokens = completionTokens
+  state.lastLatencyMs = latencyMs
+  state.lastCostPerRequestUsd = costUsd
+
+  state.latencySeries.push([now, latencyMs])
+  state.costSeries.push([now, Number(costUsd.toFixed(6))])
+  if (state.latencySeries.length > MAX_SERIES_POINTS) state.latencySeries.shift()
+  if (state.costSeries.length > MAX_SERIES_POINTS) state.costSeries.shift()
 }
 
 export function getMockMetrics() {
-  const now = new Date();
-
-  const latencyMs = Math.round(randomBetween(30, 90));
-  const costPerRequest = Number(randomBetween(0.0012, 0.0035).toFixed(4));
-  const promptTokens = Math.round(randomBetween(800, 1600));
-  const completionTokens = Math.round(randomBetween(200, 500));
+  const now = new Date()
 
   return {
     timestamp: now.toISOString(),
@@ -46,22 +61,22 @@ export function getMockMetrics() {
       ram_total_mb: 32000,
     },
     network: {
-      latency_ms: latencyMs,
+      latency_ms: state.lastLatencyMs,
       throughput_rps: Number(randomBetween(4, 12).toFixed(1)),
     },
     tokens: {
-      prompt: promptTokens,
-      completion: completionTokens,
-      total: promptTokens + completionTokens,
+      prompt: state.lastPromptTokens,
+      completion: state.lastCompletionTokens,
+      total: state.totalTokens,
     },
     cost: {
-      per_request_usd: costPerRequest,
-      total_usd: Number(randomBetween(1, 6).toFixed(2)),
+      per_request_usd: state.lastCostPerRequestUsd,
+      total_usd: Number(state.totalCostUsd.toFixed(4)),
       currency: 'USD',
     },
     series: {
-      latency_ms: buildSeries(now, latencyMs, 15, 0),
-      cost_per_request_usd: buildSeries(now, costPerRequest, 0.0008, 4),
+      latency_ms: state.latencySeries,
+      cost_per_request_usd: state.costSeries,
     },
-  };
+  }
 }
