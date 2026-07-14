@@ -10,6 +10,7 @@ function formatTime(isoString) {
 
 function LatencyPanel({ data }) {
   const { latency_ms, throughput_rps } = data.network
+  const { latency_ms: llm_latency_ms, overhead_ms, calls_last_turn } = data.llm
 
   // recharts needs an array of objects, but the schema gives us
   // [timestamp, value] pairs — so we convert one shape into the other.
@@ -40,6 +41,18 @@ function LatencyPanel({ data }) {
         <div>
           <dt>Current latency</dt>
           <dd>{latency_ms} ms</dd>
+        </div>
+        <div>
+          <dt>LLM latency (pure)</dt>
+          <dd>{llm_latency_ms} ms</dd>
+        </div>
+        <div>
+          <dt>Overhead (MCP + backend)</dt>
+          <dd>{overhead_ms} ms</dd>
+        </div>
+        <div>
+          <dt>LLM calls this turn</dt>
+          <dd>{calls_last_turn}</dd>
         </div>
         <div>
           <dt>Throughput</dt>

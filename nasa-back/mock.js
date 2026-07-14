@@ -13,9 +13,13 @@ const MAX_SERIES_POINTS = 20
 const state = {
   totalCostUsd: 0,
   totalTokens: 0,
+  totalLlmCalls: 0,
   lastPromptTokens: 0,
   lastCompletionTokens: 0,
   lastLatencyMs: 0,
+  lastLlmLatencyMs: 0,
+  lastOverheadMs: 0,
+  lastLlmCalls: 0,
   lastCostPerRequestUsd: 0,
   latencySeries: [],
   costSeries: [],
@@ -25,14 +29,26 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min)
 }
 
-export function recordChatTurn({ promptTokens, completionTokens, latencyMs, costUsd }) {
+export function recordChatTurn({
+  promptTokens,
+  completionTokens,
+  latencyMs,
+  llmLatencyMs = 0,
+  overheadMs = 0,
+  llmCalls = 0,
+  costUsd,
+}) {
   const now = new Date().toISOString()
 
   state.totalCostUsd += costUsd
   state.totalTokens += promptTokens + completionTokens
+  state.totalLlmCalls += llmCalls
   state.lastPromptTokens = promptTokens
   state.lastCompletionTokens = completionTokens
   state.lastLatencyMs = latencyMs
+  state.lastLlmLatencyMs = llmLatencyMs
+  state.lastOverheadMs = overheadMs
+  state.lastLlmCalls = llmCalls
   state.lastCostPerRequestUsd = costUsd
 
   state.latencySeries.push([now, latencyMs])
@@ -63,6 +79,12 @@ export function getMockMetrics() {
     network: {
       latency_ms: state.lastLatencyMs,
       throughput_rps: Number(randomBetween(4, 12).toFixed(1)),
+    },
+    llm: {
+      latency_ms: state.lastLlmLatencyMs,
+      overhead_ms: state.lastOverheadMs,
+      calls_last_turn: state.lastLlmCalls,
+      calls_total: state.totalLlmCalls,
     },
     tokens: {
       prompt: state.lastPromptTokens,
