@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchMetrics } from './api/metrics'
 import SummaryBar from './components/SummaryBar'
-import HardwarePanel from './components/HardwarePanel'
+// Hardware metrics are mocked (no real measurement yet) — panel disabled
+// until we have a way to measure actual hardware consumption. Do not
+// delete HardwarePanel.jsx; re-enable this import when real data lands.
+// import HardwarePanel from './components/HardwarePanel'
 import LatencyPanel from './components/LatencyPanel'
 import TokensPanel from './components/TokensPanel'
 import CostPanel from './components/CostPanel'
@@ -48,7 +51,7 @@ function App() {
           <div className="dashboard">
             <SummaryBar data={metrics} />
             <div className="panels">
-              <HardwarePanel data={metrics} />
+              {/* <HardwarePanel data={metrics} /> — disabled, hardware metrics are mocked */}
               <LatencyPanel data={metrics} />
               <TokensPanel data={metrics} />
               <CostPanel data={metrics} />
