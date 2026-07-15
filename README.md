@@ -21,7 +21,7 @@ directly — it only ever calls its own backend.
    src/                                  nasa-back/
    ┌─────────────┐   fetch('/api/*')    ┌──────────────┐   HTTP      ┌──────────────┐
    │ ChatPanel   │ ───────────────────► │ index.js     │ ──────────► │ Ollama (LLM) │
-   │ Latency/... │ ◄─────────────────── │ (orchestrator)│ ◄────────── │ qwen:7b      │
+   │ Latency/... │ ◄─────────────────── │ (orchestrator)│ ◄────────── │              │
    └─────────────┘      JSON             └──────┬───────┘             └──────────────┘
                                                 │  MCP protocol       ┌──────────────┐
                                                 └───────────────────► │ MCP server   │
@@ -31,7 +31,7 @@ directly — it only ever calls its own backend.
 
 Two external services, both running on separate VMs:
 
-- **Ollama** — runs the language model (`qwen:7b`) locally instead of calling a hosted
+- **Ollama** — runs the language model (open source to avoid cost) locally instead of calling a hosted
   provider.
 - **MCP server** — exposes "tools" the model can call, using the Model Context Protocol
   (a standard way to give an LLM abilities like search or database lookups).
