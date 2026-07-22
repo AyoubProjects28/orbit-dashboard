@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit Dashboard — Live Metrics</title>
+<style>
+  :root{
+    --bg1:#1a0b2e; --bg2:#0c1b2a; --card:#1c1330; --card2:#181026;
+    --stroke:#33264d; --txt:#e9e2ff; --muted:#9d8fc7;
+    --cyan:#22e0c8; --pink:#ff2e97; --purple:#a56bff; --amber:#ffb63d;
+    --good:#2ee6a6; --bad:#ff5470;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:radial-gradient(1200px 600px at 15% 0%,#2a1147 0%,transparent 60%),
+               radial-gradient(1000px 700px at 100% 100%,#08313a 0%,transparent 55%),
+               linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:var(--txt);min-height:100vh;padding:22px 26px 40px;
+  }
+  h1{
+    text-align:center;font-size:40px;font-weight:800;letter-spacing:3px;
+    background:linear-gradient(90deg,var(--purple),var(--pink),var(--cyan));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .sub{text-align:center;color:var(--muted);margin:2px 0 4px;font-size:14px}
+  .status{text-align:center;font-size:12px;color:var(--muted);margin-bottom:18px}
+  .status b{color:var(--txt)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 12px;vertical-align:middle}
+  .on{background:var(--good);box-shadow:0 0 8px var(--good)}
+  .off{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  .grid{display:grid;grid-template-columns:1fr 1.15fr;gap:20px;max-width:1500px;margin:0 auto}
+  .panel{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--stroke);
+    border-radius:16px;padding:18px 18px 16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+  .panel h2{font-size:14px;letter-spacing:2px;color:var(--muted);margin-bottom:12px;text-transform:uppercase}
+  /* chat */
+  .chat{display:flex;flex-direction:column;height:640px}
+  .msgs{flex:1;overflow-y:auto;padding:6px 4px;display:flex;flex-direction:column;gap:10px}
+  .empty{color:var(--muted);text-align:center;margin:auto;font-size:14px;max-width:70%}
+  .msg{max-width:85%;padding:10px 13px;border-radius:12px;font-size:14px;line-height:1.5;white-space:pre-wrap}
+  .u{align-self:flex-end;background:linear-gradient(120deg,#3a1d6e,#5b2a8f);color:#fff}
+  .a{align-self:flex-start;background:#241834;border:1px solid var(--stroke)}
+  .note{align-self:stretch;background:rgba(34,224,200,.07);border:1px solid rgba(34,224,200,.3);
+    color:var(--cyan);font-size:12.5px;border-radius:10px;padding:9px 12px}
+  .note b{color:#bff7ee}
+  .compose{display:flex;gap:10px;margin-top:12px}
+  .compose input{flex:1;background:#120c22;border:1px solid var(--stroke);border-radius:11px;
+    padding:12px 14px;color:var(--txt);font-size:14px;outline:none}
+  .compose input:focus{border-color:var(--purple)}
+  .compose select{background:#120c22;border:1px solid var(--stroke);border-radius:11px;color:var(--txt);font-size:12px;padding:0 8px;outline:none;max-width:170px;cursor:pointer}
+  .compose select:focus{border-color:var(--purple)}
+  .compose button{background:linear-gradient(120deg,var(--purple),var(--pink));border:none;color:#fff;
+    font-weight:700;padding:0 22px;border-radius:11px;cursor:pointer;font-size:14px}
+  .compose button:disabled{opacity:.5;cursor:not-allowed}
+  /* metrics */
+  .metrics{display:flex;flex-direction:column;gap:16px}
+  .vm{background:var(--card2);border:1px solid var(--stroke);border-radius:14px;padding:14px 14px 10px}
+  .vm-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .vm-head .name{font-weight:700;letter-spacing:1px;font-size:15px}
+  .vm-head .ip{color:var(--muted);font-size:11px}
+  canvas.chart{width:100%;height:150px;display:block}
+  .read{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+  .read .k{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+  .read .v{font-size:16px;font-weight:700;margin-top:1px}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:6px}
+  .sw{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .core{display:flex;gap:3px;margin-top:8px;flex-wrap:wrap}
+  .core span{flex:1;min-width:8px;height:26px;background:#241834;border-radius:3px;position:relative;overflow:hidden}
+  .core span i{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,var(--cyan),#0f7d70);display:block}
+</style>
+</head>
+<body>
+  <h1>ORBIT DASHBOARD</h1>
+  <div class="sub">Real-time VM metrics — request / response sampling</div>
+  <div class="status" id="status">Agents: <span class="dot off" id="d-llm"></span><b>LLM-TEST01</b><span class="dot off" id="d-mcp"></span><b>MCP-TEST01</b></div>
+
+  <div class="grid">
+    <!-- CHAT -->
+    <div class="panel chat">
+      <h2>Chat</h2>
+      <div class="msgs" id="msgs">
+        <div class="empty" id="empty">Send a prompt: sampling starts, and when the answer arrives you'll see the highlighted window + the CPU/RAM increase.</div>
+      </div>
+      <div class="compose">
+        <select id="model" title="Modèle LLM"></select>
+        <input id="in" placeholder="Ask something…" autocomplete="off">
+        <button id="send">Send</button>
+      </div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="panel metrics">
+      <h2>Live resources</h2>
+      <div class="vm" id="vm-llm">
+        <div class="vm-head"><span class="name" style="color:var(--cyan)">LLM-TEST01 · Ollama</span><span class="ip">172.18.53.7</span></div>
+        <canvas class="chart" data-vm="llm"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--cyan)"></i>CPU %</span><span><i class="sw" style="background:var(--pink)"></i>RAM %</span><span style="color:var(--amber)">▮ request/response window</span></div>
+        <div class="read">
+          <div><div class="k">CPU</div><div class="v" data-f="cpu">–</div></div>
+          <div><div class="k">RAM</div><div class="v" data-f="mem">–</div></div>
+          <div><div class="k">Network ↓/↑</div><div class="v" data-f="net" style="font-size:13px">–</div></div>
+          <div><div class="k">Load 1m</div><div class="v" data-f="load">–</div></div>
+        </div>
+        <div class="core" data-cores="llm"></div>
+      </div>
+
+      <div class="vm" id="vm-mcp">
+        <div class="vm-head"><span class="name" style="color:var(--purple)">MCP-TEST01 · FastMCP</span><span class="ip">172.18.53.9</span></div>
+        <canvas class="chart" data-vm="mcp"></canvas>
+        <div class="legend"><span><i class="sw" style="background:var(--cyan)"></i>CPU %</span><span><i class="sw" style="background:var(--pink)"></i>RAM %</span><span style="color:var(--amber)">▮ request/response window</span></div>
+        <div class="read">
+          <div><div class="k">CPU</div><div class="v" data-f="cpu">–</div></div>
+          <div><div class="k">RAM</div><div class="v" data-f="mem">–</div></div>
+          <div><div class="k">Network ↓/↑</div><div class="v" data-f="net" style="font-size:13px">–</div></div>
+          <div><div class="k">Load 1m</div><div class="v" data-f="load">–</div></div>
+        </div>
+        <div class="core" data-cores="mcp"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ======================= CONFIGURATION =======================
+const CFG = {
+  metricsUrl: "/api/vm-metrics",   // backend agrege LLM+MCP (meme origine, via Nginx -> :3001)
+  modelsUrl: "/api/models",        // liste des modeles Ollama pour le selecteur
+  backendChat: "/api/chat",        // POST {message} -> {reply, turnMetrics}
+  pollMs: 1000,        // periode de sondage
+  windowS: 60,         // fenetre visible (secondes)
+  baselineS: 15,       // duree de reference avant la requete
+  mock: true,          // si le backend/agent est injoignable -> donnees simulees (demo)
+};
+
+// ======================= ETAT =======================
+const VMS = ["llm","mcp"];
+const buf = { llm:mkBuf(), mcp:mkBuf() };
+const online = { llm:false, mcp:false };
+const last = { llm:null, mcp:null };
+let carot = null;   // {start, end, active, base:{llm,mcp}}
+function mkBuf(){ return { cpu:[], mem:[], rx:[], tx:[], cores:[] }; }
+const now = () => Date.now()/1000;
+
+// ======================= COLLECTE =======================
+function mapAgent(d){
+  return {
+    t: now(),
+    cpu: d.cpu_percent,
+    mem: d.mem_percent,
+    memUsed: d.mem_used_bytes, memTotal: d.mem_total_bytes,
+    rx: d.net_rx_bps, tx: d.net_tx_bps,
+    load: (d.load_avg&&d.load_avg[0])||0,
+    cores: d.per_cpu||[],
+  };
+}
+async function pollAll(){
+  try{
+    const r = await fetch(CFG.metricsUrl, {cache:"no-store"});
+    if(!r.ok) throw 0;
+    const d = await r.json();               // { llm:{...}, mcp:{...} }
+    for(const vm of VMS){
+      if(d[vm] && !d[vm].error && typeof d[vm].cpu_percent === "number"){
+        online[vm]=true; push(vm, mapAgent(d[vm]));
+      }else{
+        online[vm]=false; if(CFG.mock) push(vm, mock(vm));
+      }
+    }
+  }catch(e){
+    for(const vm of VMS){ online[vm]=false; if(CFG.mock) push(vm, mock(vm)); }
+  }
+}
+function push(vm, s){
+  const b = buf[vm];
+  b.cpu.push({t:s.t,v:s.cpu}); b.mem.push({t:s.t,v:s.mem});
+  b.rx.push({t:s.t,v:s.rx}); b.tx.push({t:s.t,v:s.tx});
+  b.cores = s.cores; last[vm]=s;
+  const cut = now()-CFG.windowS-2;
+  for(const k of ["cpu","mem","rx","tx"]) while(b[k].length&&b[k][0].t<cut) b[k].shift();
+}
+
+// donnees simulees realistes (baseline basse + pic quand une requete est en vol sur le LLM)
+const mockState = { llm:{cpu:8,mem:62}, mcp:{cpu:3,mem:24} };
+function mock(vm){
+  const st = mockState[vm];
+  const inflight = carot && carot.active;
+  let target = vm==="llm" ? (inflight? 78:9) : (inflight? 22:4);
+  st.cpu += (target - st.cpu)*0.25 + (Math.random()-.5)*6;
+  st.cpu = Math.max(1, Math.min(99, st.cpu));
+  st.mem += (Math.random()-.5)*0.6 + (inflight&&vm==="llm"?0.8:-0.1);
+  st.mem = Math.max(vm==="llm"?58:22, Math.min(vm==="llm"?86:30, st.mem));
+  const nc = vm==="llm"?4:2;
+  const cores = Array.from({length:nc},()=> Math.max(1,Math.min(99, st.cpu+(Math.random()-.5)*30)));
+  const totB = (vm==="llm"?32:8)*1073741824;
+  return { t:now(), cpu:+st.cpu.toFixed(1), mem:+st.mem.toFixed(1),
+    memUsed:st.mem/100*totB, memTotal:totB,
+    rx: inflight? 40000+Math.random()*90000 : Math.random()*4000,
+    tx: inflight? 20000+Math.random()*50000 : Math.random()*3000,
+    load:+(st.cpu/100*nc).toFixed(2), cores };
+}
+
+// ======================= DESSIN =======================
+function setupCanvas(cv){
+  const dpr = window.devicePixelRatio||1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width=w*dpr; cv.height=h*dpr;
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,w,h};
+}
+function drawChart(cv, vm){
+  const {ctx,w,h}=setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const padL=30,padR=8,padT=8,padB=16;
+  const x0=padL,x1=w-padR,y0=padT,y1=h-padB;
+  const tNow=now(), tMin=tNow-CFG.windowS;
+  const X=t=>x0+(t-tMin)/CFG.windowS*(x1-x0);
+  const Y=v=>y1-(v/100)*(y1-y0);
+  // grille
+  ctx.strokeStyle="rgba(255,255,255,.06)"; ctx.lineWidth=1; ctx.fillStyle="#6b5e8c"; ctx.font="9px Segoe UI";
+  for(const g of [0,25,50,75,100]){ const y=Y(g); ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x1,y);ctx.stroke();
+    ctx.fillText(g+"%", 4, y+3); }
+  // fenetre de carottage (surbrillance)
+  if(carot){
+    const s=Math.max(carot.start,tMin), e=Math.min(carot.end||tNow, tNow);
+    if(e>tMin){
+      const xs=X(s), xe=X(e);
+      ctx.fillStyle="rgba(255,182,61,.14)"; ctx.fillRect(xs,y0,xe-xs,y1-y0);
+      ctx.strokeStyle="rgba(255,182,61,.7)"; ctx.setLineDash([4,3]);
+      ctx.beginPath();ctx.moveTo(xs,y0);ctx.lineTo(xs,y1);ctx.moveTo(xe,y0);ctx.lineTo(xe,y1);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  const b=buf[vm];
+  line(ctx, b.cpu, X, Y, "#22e0c8", true);
+  line(ctx, b.mem, X, Y, "#ff2e97", false);
+}
+function line(ctx, arr, X, Y, color, fill){
+  if(arr.length<2) return;
+  ctx.beginPath();
+  arr.forEach((p,i)=>{ const x=X(p.t),y=Y(p.v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin="round"; ctx.stroke();
+  if(fill){
+    const last=arr[arr.length-1], first=arr[0];
+    ctx.lineTo(X(last.t), Y(0)); ctx.lineTo(X(first.t), Y(0)); ctx.closePath();
+    const g=ctx.createLinearGradient(0,0,0,140); g.addColorStop(0,color+"33"); g.addColorStop(1,color+"00");
+    ctx.fillStyle=g; ctx.fill();
+  }
+}
+function drawCores(vm){
+  const host=document.querySelector(`[data-cores="${vm}"]`);
+  const cores=buf[vm].cores||[];
+  if(host.children.length!==cores.length){
+    host.innerHTML=""; cores.forEach(()=>{const s=document.createElement("span");s.innerHTML="<i></i>";host.appendChild(s);});
+  }
+  cores.forEach((c,i)=>{ const bar=host.children[i]?.firstChild; if(bar) bar.style.height=Math.max(3,c)+"%"; });
+}
+function fmtBps(b){ if(b>=1048576) return (b/1048576).toFixed(1)+" Mo/s"; if(b>=1024) return (b/1024).toFixed(0)+" Ko/s"; return Math.round(b)+" o/s"; }
+function fmtGo(bytes){ return (bytes/1073741824).toFixed(1)+" Go"; }
+
+function render(){
+  document.getElementById("d-llm").className="dot "+(online.llm?"on":"off");
+  document.getElementById("d-mcp").className="dot "+(online.mcp?"on":"off");
+  for(const vm of VMS){
+    const cv=document.querySelector(`canvas[data-vm="${vm}"]`); if(cv) drawChart(cv,vm);
+    drawCores(vm);
+    const s=last[vm]; if(!s) continue;
+    const card=document.getElementById("vm-"+vm);
+    card.querySelector('[data-f="cpu"]').textContent=s.cpu.toFixed(0)+" %";
+    card.querySelector('[data-f="mem"]').textContent=s.mem.toFixed(0)+" %";
+    card.querySelector('[data-f="net"]').textContent="↓"+fmtBps(s.rx)+"  ↑"+fmtBps(s.tx);
+    card.querySelector('[data-f="load"]').textContent=s.load.toFixed(2);
+  }
+  requestAnimationFrame(render);
+}
+
+// ======================= CAROTTAGE + CHAT =======================
+function avgWindow(vm, key, t0, t1){
+  const a=buf[vm][key].filter(p=>p.t>=t0&&p.t<=t1);
+  if(!a.length) return 0; return a.reduce((s,p)=>s+p.v,0)/a.length;
+}
+function peakWindow(vm, key, t0, t1){
+  const a=buf[vm][key].filter(p=>p.t>=t0&&p.t<=t1);
+  return a.length? Math.max(...a.map(p=>p.v)) : 0;
+}
+function startCarot(){
+  const t=now();
+  carot={ start:t, end:null, active:true,
+    base:{ llm:avgWindow("llm","cpu",t-CFG.baselineS,t), mcp:avgWindow("mcp","cpu",t-CFG.baselineS,t) } };
+}
+function endCarot(nCalls){
+  carot.end=now(); carot.active=false;
+  const dur=(carot.end-carot.start);
+  const parts=[];
+  for(const vm of VMS){
+    const avg=avgWindow(vm,"cpu",carot.start,carot.end);
+    const peak=peakWindow(vm,"cpu",carot.start,carot.end);
+    const base=carot.base[vm]||0.1;
+    const inc= base>0.5 ? ((avg-base)/base*100) : (avg*10);
+    const memAvg=avgWindow(vm,"mem",carot.start,carot.end);
+    const name= vm==="llm"?"LLM-TEST01":"MCP-TEST01";
+    parts.push(`<b>${name}</b> — CPU avg ${avg.toFixed(0)}% (peak ${peak.toFixed(0)}%), i.e. <b>${inc>=0?"+":""}${inc.toFixed(0)}%</b> vs base ${base.toFixed(1)}% · RAM ${memAvg.toFixed(0)}%`);
+  }
+  addNote(`⏱ Sampling done — ${dur.toFixed(1)} s · ${nCalls} LLM call(s)<br>${parts.join("<br>")}`);
+}
+
+function addMsg(role, text){
+  const e=document.getElementById("empty"); if(e) e.remove();
+  const d=document.createElement("div"); d.className="msg "+(role==="user"?"u":"a"); d.textContent=text;
+  const m=document.getElementById("msgs"); m.appendChild(d); m.scrollTop=m.scrollHeight; return d;
+}
+function addNote(html){
+  const d=document.createElement("div"); d.className="note"; d.innerHTML=html;
+  const m=document.getElementById("msgs"); m.appendChild(d); m.scrollTop=m.scrollHeight;
+}
+
+async function send(){
+  const input=document.getElementById("in"); const btn=document.getElementById("send");
+  const text=input.value.trim(); if(!text) return;
+  input.value=""; btn.disabled=true;
+  addMsg("user", text);
+  startCarot();
+  const typing=addMsg("assistant","…");
+  let reply, nCalls=2;
+  try{
+    const chosen=document.getElementById("model").value;
+    const r=await fetch(CFG.backendChat,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(chosen?{message:text,model:chosen}:{message:text})});
+    const d=await r.json(); reply=d.reply||d.response||JSON.stringify(d);
+  }catch(e){
+    // fallback demo : delai realiste ~ latence CPU-only observee
+    await new Promise(res=>setTimeout(res, 2600+Math.random()*2200));
+    reply="(demo mode — backend unreachable) Simulated reply to drive the metrics. On the real infra, the LLM answer appears here.";
+  }
+  typing.textContent=reply;
+  endCarot(nCalls);
+  btn.disabled=false; input.focus();
+}
+document.getElementById("send").onclick=send;
+document.getElementById("in").addEventListener("keydown",e=>{ if(e.key==="Enter") send(); });
+
+// ======================= BOUCLE =======================
+async function loadModels(){
+  const sel=document.getElementById("model");
+  try{
+    const r=await fetch(CFG.modelsUrl,{cache:"no-store"});
+    const d=await r.json();
+    const models=d.models||[];
+    if(models.length){
+      sel.innerHTML=models.map(m=>`<option value="${m}">${m}</option>`).join("");
+      const saved=localStorage.getItem("orbit_model");
+      if(saved && models.includes(saved)) sel.value=saved;
+    }else sel.innerHTML='<option value="">(modèles indispo)</option>';
+  }catch(e){ sel.innerHTML='<option value="">(modèles indispo)</option>'; }
+  sel.onchange=()=>localStorage.setItem("orbit_model", sel.value);
+}
+loadModels();
+pollAll(); setInterval(pollAll, CFG.pollMs);
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
