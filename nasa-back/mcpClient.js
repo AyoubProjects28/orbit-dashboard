@@ -43,3 +43,16 @@ export async function callTool(name, args) {
   }
   return client.callTool({ name, arguments: args })
 }
+
+// Convenience wrapper for tools whose result is a JSON object encoded as
+// text (FastMCP's dict-return convention) — callTool() + parse in one call.
+export async function callToolJson(name, args) {
+  const result = await callTool(name, args)
+  const text = result?.content?.[0]?.text ?? ''
+  if (!text) return {}
+  try {
+    return JSON.parse(text)
+  } catch {
+    return {}
+  }
+}

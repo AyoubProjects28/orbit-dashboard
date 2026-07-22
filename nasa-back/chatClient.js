@@ -1,12 +1,7 @@
 // Client du LLM — ne parle qu'à Ollama, jamais au MCP.
-// Envoie le prompt + la liste d'outils en cache ; lit la réponse
-// (texte final ou tool_calls structuré) et les compteurs de tokens.
-
 import axios from 'axios'
-
 const LLM_URL = process.env.ORBIT_LLM_URL || 'http://172.18.53.7:11434'
 const MODEL = process.env.ORBIT_LLM_MODEL || 'qwen:7b'
-
 function toOllamaTools(mcpTools) {
   return mcpTools.map((tool) => ({
     type: 'function',
@@ -17,26 +12,22 @@ function toOllamaTools(mcpTools) {
     },
   }))
 }
-
-export async function chat(messages, mcpTools = []) {
+export async function chat(messages, mcpTools = [], model = MODEL) {
   const startTime = Date.now()
-
   const response = await axios.post(
     `${LLM_URL}/api/chat`,
     {
-      model: MODEL,
+      model: model || MODEL,
       messages,
       tools: toOllamaTools(mcpTools),
       stream: false,
     },
     { timeout: 120000 }
   )
-
   const { message, prompt_eval_count, eval_count } = response.data
   const promptTokens = prompt_eval_count ?? 0
   const completionTokens = eval_count ?? 0
   const costUsd = (promptTokens + completionTokens) * 0.000005
-
   return {
     message,
     turnMetrics: {
