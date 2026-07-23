@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchMetrics } from './api/metrics'
-import SummaryBar from './components/SummaryBar'
-// Hardware metrics are mocked (no real measurement yet) — panel disabled
-// until we have a way to measure actual hardware consumption. Do not
-// delete HardwarePanel.jsx; re-enable this import when real data lands.
-// import HardwarePanel from './components/HardwarePanel'
-import LatencyPanel from './components/LatencyPanel'
-import TokensPanel from './components/TokensPanel'
-import CostPanel from './components/CostPanel'
+import { useVmMetrics } from './hooks/useVmMetrics'
+import Tabs from './components/Tabs'
 import ChatPanel from './components/ChatPanel'
+import InfraTab from './components/infra/InfraTab'
+import UsageTab from './components/usage/UsageTab'
+import LogsTab from './components/logs/LogsTab'
 import './App.css'
 
 const POLL_INTERVAL_MS = 12000
@@ -16,6 +13,12 @@ const POLL_INTERVAL_MS = 12000
 function App() {
   const [metrics, setMetrics] = useState(null)
   const [error, setError] = useState(null)
+  const [activeTab, setActiveTab] = useState('infra')
+
+  // Monté ICI, au-dessus des onglets : le tampon de métriques doit survivre
+  // aux changements d'onglet, sinon un prompt envoyé depuis Usage ou Logs
+  // produirait un carottage sans baseline. Voir hooks/useVmMetrics.js.
+  const vm = useVmMetrics()
 
   const refreshMetrics = useCallback(() => {
     fetchMetrics()
@@ -26,14 +29,33 @@ function App() {
       .catch((err) => setError(err.message))
   }, [])
 
-  // Fetch once on mount, then keep hardware drifting passively on an
-  // interval. ChatPanel calls refreshMetrics() again after each message —
-  // that's the event-driven path for latency/tokens/cost.
   useEffect(() => {
     refreshMetrics()
     const interval = setInterval(refreshMetrics, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [refreshMetrics])
+
+  const tabs = [
+    {
+      id: 'infra',
+      label: 'Infra',
+      content: (
+        <InfraTab
+          latest={vm.latest}
+          online={vm.online}
+          lastSampling={vm.lastSampling}
+          buffersRef={vm.buffersRef}
+          samplingRef={vm.samplingRef}
+        />
+      ),
+    },
+    {
+      id: 'usage',
+      label: 'Usage',
+      content: metrics ? <UsageTab data={metrics} /> : <p className="status">Loading metrics…</p>,
+    },
+    { id: 'logs', label: 'Logs', content: <LogsTab /> },
+  ]
 
   return (
     <div className="app">
@@ -43,22 +65,15 @@ function App() {
       </header>
 
       {error && <p className="status status-error">Could not load metrics: {error}</p>}
-      {!error && !metrics && <p className="status">Loading metrics…</p>}
 
-      {metrics && (
-        <div className="layout">
-          <ChatPanel onMessageSent={refreshMetrics} />
-          <div className="dashboard">
-            <SummaryBar data={metrics} />
-            <div className="panels">
-              {/* <HardwarePanel data={metrics} /> — disabled, hardware metrics are mocked */}
-              <LatencyPanel data={metrics} />
-              <TokensPanel data={metrics} />
-              <CostPanel data={metrics} />
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="layout">
+        <ChatPanel
+          onMessageSent={refreshMetrics}
+          startSampling={vm.startSampling}
+          endSampling={vm.endSampling}
+        />
+        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+      </div>
     </div>
   )
 }
