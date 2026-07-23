@@ -24,8 +24,8 @@ describe('VmCard', () => {
     expect(screen.getByTestId('reading-cpu')).toHaveTextContent('42 %')
     expect(screen.getByTestId('reading-mem')).toHaveTextContent('62 %')
     expect(screen.getByTestId('reading-load')).toHaveTextContent('1.53')
-    expect(screen.getByTestId('reading-net')).toHaveTextContent('2.0 Ko/s')
-    expect(screen.getByTestId('reading-net')).toHaveTextContent('1.0 Mo/s')
+    expect(screen.getByTestId('reading-net')).toHaveTextContent('2.0 KB/s')
+    expect(screen.getByTestId('reading-net')).toHaveTextContent('1.0 MB/s')
   })
 
   it('rend une barre par cœur', () => {

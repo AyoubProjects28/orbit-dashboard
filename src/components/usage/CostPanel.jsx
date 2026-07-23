@@ -26,7 +26,7 @@ function CostPanel({ data }) {
         <p className="panel-empty">Send a message to see cost per request.</p>
       ) : (
         <div className="panel-chart">
-          <ResponsiveContainer width="100%" height={140}>
+          <ResponsiveContainer width="100%" height={100}>
             <LineChart data={chartData} margin={{ left: 0, right: 16, top: 8 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.12)" />
               <XAxis dataKey="time" tick={{ fill: '#a99bc9', fontSize: 12 }} />
