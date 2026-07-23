@@ -8,6 +8,14 @@ export default defineConfig({
     // Matches the folder name used on web-test01 (/opt/projects/nasa-front)
     // so local build output and the VM deployment path stay aligned.
     outDir: 'nasa-front',
+    // Vite's default empties outDir before every build. nasa-front/ also
+    // holds monitor.html (Antoine's dashboard, kept running side by side
+    // until the fusion migration is done — see docs/superpowers/specs/
+    // 2026-07-23-orbit-dashboard-fusion-design.md §8.3) plus its own
+    // favicon/icons/older asset bundles, none of which Vite knows about.
+    // A default build silently deletes all of it. Disabled until monitor.html
+    // is retired at Step 5 of that migration.
+    emptyOutDir: false,
   },
   server: {
     // Forward /api/* requests to the Express backend during local dev,
