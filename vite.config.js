@@ -17,4 +17,12 @@ export default defineConfig({
       '/api': 'http://localhost:3001',
     },
   },
+  test: {
+    // jsdom fournit document/window aux tests de composants ; les modules
+    // purs (lib/, orbitChart) n'en dépendent pas mais partagent la config.
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    // Le build de production sort dans nasa-front/ — ne jamais y chercher de tests.
+    exclude: ['node_modules/**', 'nasa-front/**', 'nasa-back/**'],
+  },
 })
