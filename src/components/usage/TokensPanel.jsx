@@ -11,7 +11,7 @@ function TokensPanel({ data }) {
         <p className="panel-empty">Send a message to see token usage.</p>
       ) : (
         <div className="panel-chart">
-          <ResponsiveContainer width="100%" height={140}>
+          <ResponsiveContainer width="100%" height={100}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 16, right: 24 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.12)" />
               <XAxis type="number" tick={{ fill: '#a99bc9', fontSize: 12 }} />

@@ -24,18 +24,18 @@ function TurnMetrics({ metrics }) {
   return (
     <div className="turn-metrics">
       <button type="button" className="turn-metrics-toggle" onClick={() => setOpen((value) => !value)}>
-        {open ? '⌄' : '›'} métriques · {metrics.total_tokens} tokens · {seconds(metrics.latency_ms)} ·{' '}
+        {open ? '⌄' : '›'} metrics · {metrics.total_tokens} tokens · {seconds(metrics.latency_ms)} ·{' '}
         {formatCost(metrics.cost_usd)}
       </button>
       {open && (
         <dl className="turn-metrics-detail">
-          <div><dt>Prompt / complétion</dt><dd>{metrics.prompt_tokens} / {metrics.completion_tokens}</dd></div>
-          <div><dt>Chargement</dt><dd>{seconds(metrics.load_ms)}</dd></div>
-          <div><dt>Évaluation du prompt</dt><dd>{seconds(metrics.prompt_eval_ms)}</dd></div>
-          <div><dt>Génération</dt><dd>{seconds(metrics.gen_ms)}</dd></div>
-          <div><dt>Overhead MCP + backend</dt><dd>{seconds(metrics.overhead_ms)}</dd></div>
-          <div><dt>Appels LLM</dt><dd>{metrics.llm_calls}</dd></div>
-          <div><dt>Débit</dt><dd>{throughput}</dd></div>
+          <div><dt>Prompt / completion</dt><dd>{metrics.prompt_tokens} / {metrics.completion_tokens}</dd></div>
+          <div><dt>Load</dt><dd>{seconds(metrics.load_ms)}</dd></div>
+          <div><dt>Prompt eval</dt><dd>{seconds(metrics.prompt_eval_ms)}</dd></div>
+          <div><dt>Generation</dt><dd>{seconds(metrics.gen_ms)}</dd></div>
+          <div><dt>MCP + backend overhead</dt><dd>{seconds(metrics.overhead_ms)}</dd></div>
+          <div><dt>LLM calls</dt><dd>{metrics.llm_calls}</dd></div>
+          <div><dt>Throughput</dt><dd>{throughput}</dd></div>
         </dl>
       )}
     </div>
@@ -106,8 +106,8 @@ function ChatPanel({ onMessageSent, startSampling, endSampling }) {
       <div className="chat-messages">
         {messages.length === 0 && (
           <p className="chat-empty">
-            Envoie un message : la fenêtre requête → réponse s'allume sur les courbes de
-            l'onglet Infra et les métriques du tour apparaissent sous la réponse.
+            Send a message: the request→response window lights up on the Infra tab's
+            charts, and the turn's metrics appear below the reply.
           </p>
         )}
         {messages.map((message, index) => (
@@ -125,11 +125,11 @@ function ChatPanel({ onMessageSent, startSampling, endSampling }) {
       <form className="chat-input-row" onSubmit={handleSubmit}>
         <select
           className="chat-provider"
-          aria-label="Cible LLM"
+          aria-label="LLM target"
           value={provider}
           onChange={handleProviderChange}
         >
-          {providers.length === 0 && <option value="">(cibles indisponibles)</option>}
+          {providers.length === 0 && <option value="">(no targets available)</option>}
           {providers.map((item) => (
             <option key={item.id} value={item.id} disabled={!item.available}>
               {item.label}

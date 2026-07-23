@@ -31,14 +31,14 @@ export async function listProviders() {
   if (EC2_URL) {
     const models = await ollamaModels(EC2_URL)
     if (models.length) models.forEach((name) => out.push({ id: `ec2:${name}`, label: `EC2 GPU · ${name}`, metrics: 'infra', target: 'ec2', available: true }))
-    else out.push({ id: 'ec2', label: 'AWS EC2 GPU (injoignable)', metrics: 'infra', target: 'ec2', available: false })
+    else out.push({ id: 'ec2', label: 'AWS EC2 GPU (unreachable)', metrics: 'infra', target: 'ec2', available: false })
   } else {
-    out.push({ id: 'ec2', label: 'AWS EC2 GPU (URL non configurée)', metrics: 'infra', target: 'ec2', available: false })
+    out.push({ id: 'ec2', label: 'AWS EC2 GPU (URL not configured)', metrics: 'infra', target: 'ec2', available: false })
   }
   // Claude -> métriques TOKENS
-  out.push({ id: 'claude', label: ANTHROPIC_KEY ? `Claude · ${ANTHROPIC_MODEL}` : 'Claude (clé API manquante)', metrics: 'tokens', target: 'api', available: !!ANTHROPIC_KEY })
+  out.push({ id: 'claude', label: ANTHROPIC_KEY ? `Claude · ${ANTHROPIC_MODEL}` : 'Claude (missing API key)', metrics: 'tokens', target: 'api', available: !!ANTHROPIC_KEY })
   // Lambda -> métriques TOKENS
-  out.push({ id: 'lambda', label: LAMBDA_URL ? 'AWS Lambda' : 'AWS Lambda (URL non configurée)', metrics: 'tokens', target: 'api', available: !!LAMBDA_URL })
+  out.push({ id: 'lambda', label: LAMBDA_URL ? 'AWS Lambda' : 'AWS Lambda (URL not configured)', metrics: 'tokens', target: 'api', available: !!LAMBDA_URL })
   return out
 }
 

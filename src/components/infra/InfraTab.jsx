@@ -6,10 +6,10 @@ function SamplingLine({ vm, stats }) {
   const increase = cpuIncreasePct(stats.cpu_avg, stats.cpu_base)
   return (
     <li>
-      <b>{VM_META[vm].name}</b> — CPU moy. {stats.cpu_avg.toFixed(0)}% (pic {stats.cpu_peak.toFixed(0)}%),{' '}
+      <b>{VM_META[vm].name}</b> — CPU avg. {stats.cpu_avg.toFixed(0)}% (peak {stats.cpu_peak.toFixed(0)}%),{' '}
       {increase === null
-        ? `baseline trop basse pour un ratio (${stats.cpu_base.toFixed(1)}%)`
-        : `soit ${increase >= 0 ? '+' : ''}${increase.toFixed(0)}% vs base ${stats.cpu_base.toFixed(1)}%`}
+        ? `baseline too low for a ratio (${stats.cpu_base.toFixed(1)}%)`
+        : `i.e. ${increase >= 0 ? '+' : ''}${increase.toFixed(0)}% vs base ${stats.cpu_base.toFixed(1)}%`}
       {' · '}RAM {stats.mem_avg.toFixed(0)}% · <b>{stats.cpu_seconds.toFixed(1)} CPU·s</b>
     </li>
   )
@@ -32,10 +32,10 @@ function InfraTab({ latest, online, lastSampling, buffersRef, samplingRef }) {
       </div>
 
       <section className="sampling-summary" data-testid="sampling-summary">
-        <h3>Dernier carottage</h3>
+        <h3>Last sampling</h3>
         {lastSampling ? (
           <>
-            <p className="sampling-window">Fenêtre mesurée : {lastSampling.window_s.toFixed(1)} s</p>
+            <p className="sampling-window">Window measured: {lastSampling.window_s.toFixed(1)} s</p>
             <ul>
               {VMS.map((vm) => (
                 <SamplingLine key={vm} vm={vm} stats={lastSampling.vms[vm]} />
@@ -44,8 +44,8 @@ function InfraTab({ latest, online, lastSampling, buffersRef, samplingRef }) {
           </>
         ) : (
           <p className="panel-empty">
-            Envoie un prompt : la fenêtre requête → réponse s'allume sur les courbes et la
-            consommation réelle est mesurée ici.
+            Send a prompt: the request→response window lights up on the charts and real
+            consumption is measured here.
           </p>
         )}
       </section>

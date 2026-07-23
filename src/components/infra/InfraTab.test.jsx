@@ -51,6 +51,6 @@ describe('InfraTab', () => {
       },
     }
     render(<InfraTab latest={latest} online={{ llm: true, mcp: true }} lastSampling={lastSampling} {...refs} />)
-    expect(screen.getByTestId('sampling-summary')).toHaveTextContent('baseline trop basse')
+    expect(screen.getByTestId('sampling-summary')).toHaveTextContent('baseline too low')
   })
 })

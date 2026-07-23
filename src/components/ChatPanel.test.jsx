@@ -124,9 +124,9 @@ describe('ChatPanel — métriques repliables', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() => expect(screen.getByText('Il y a 7 fichiers.')).toBeInTheDocument())
 
-    expect(screen.queryByText(/Génération/)).not.toBeInTheDocument()
-    await userEvent.click(screen.getByText(/métriques/))
-    expect(screen.getByText(/Génération/)).toBeInTheDocument()
+    expect(screen.queryByText(/Generation/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByText(/metrics/))
+    expect(screen.getByText(/Generation/)).toBeInTheDocument()
     expect(screen.getByText(/160 tokens/)).toBeInTheDocument()
   })
 })
