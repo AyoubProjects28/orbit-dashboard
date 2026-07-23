@@ -48,7 +48,7 @@
   .compose input{flex:1;background:#120c22;border:1px solid var(--stroke);border-radius:11px;
     padding:12px 14px;color:var(--txt);font-size:14px;outline:none}
   .compose input:focus{border-color:var(--purple)}
-  .compose select{background:#120c22;border:1px solid var(--stroke);border-radius:11px;color:var(--txt);font-size:12px;padding:0 8px;outline:none;max-width:170px;cursor:pointer}
+  .compose select{background:#120c22;border:1px solid var(--stroke);border-radius:11px;color:var(--txt);font-size:12px;padding:0 8px;outline:none;max-width:210px;cursor:pointer}
   .compose select:focus{border-color:var(--purple)}
   .compose button{background:linear-gradient(120deg,var(--purple),var(--pink));border:none;color:#fff;
     font-weight:700;padding:0 22px;border-radius:11px;cursor:pointer;font-size:14px}
@@ -83,7 +83,7 @@
         <div class="empty" id="empty">Send a prompt: sampling starts, and when the answer arrives you'll see the highlighted window + the CPU/RAM increase.</div>
       </div>
       <div class="compose">
-        <select id="model" title="Modèle LLM"></select>
+        <select id="model" title="Cible LLM"></select>
         <input id="in" placeholder="Ask something…" autocomplete="off">
         <button id="send">Send</button>
       </div>
@@ -117,6 +117,17 @@
         </div>
         <div class="core" data-cores="mcp"></div>
       </div>
+      <div class="vm" id="tokenPanel" style="display:none">
+        <div class="vm-head"><span class="name" style="color:var(--amber)">Usage API (tokens)</span><span class="ip" id="tk-prov">—</span></div>
+        <div class="read" style="grid-template-columns:repeat(3,1fr);gap:12px">
+          <div><div class="k">Prompt</div><div class="v" id="tk-in">–</div></div>
+          <div><div class="k">Completion</div><div class="v" id="tk-out">–</div></div>
+          <div><div class="k">Total tokens</div><div class="v" id="tk-total">–</div></div>
+          <div><div class="k">Coût estimé</div><div class="v" id="tk-cost">–</div></div>
+          <div><div class="k">Latence</div><div class="v" id="tk-lat">–</div></div>
+          <div><div class="k">Débit</div><div class="v" id="tk-tps">–</div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -124,7 +135,7 @@
 // ======================= CONFIGURATION =======================
 const CFG = {
   metricsUrl: "/api/vm-metrics",   // backend agrege LLM+MCP (meme origine, via Nginx -> :3001)
-  modelsUrl: "/api/models",        // liste des modeles Ollama pour le selecteur
+  providersUrl: "/api/providers",  // cibles LLM (Ollama local / EC2 / Claude / Lambda)
   backendChat: "/api/chat",        // POST {message} -> {reply, turnMetrics}
   pollMs: 1000,        // periode de sondage
   windowS: 60,         // fenetre visible (secondes)
@@ -319,11 +330,12 @@ async function send(){
   addMsg("user", text);
   startCarot();
   const typing=addMsg("assistant","…");
-  let reply, nCalls=2;
+  let reply, nCalls=2, turn=null;
   try{
     const chosen=document.getElementById("model").value;
-    const r=await fetch(CFG.backendChat,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(chosen?{message:text,model:chosen}:{message:text})});
+    const r=await fetch(CFG.backendChat,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(chosen?{message:text,provider:chosen}:{message:text})});
     const d=await r.json(); reply=d.reply||d.response||JSON.stringify(d);
+    turn=d.turnMetrics||null; if(turn&&turn.llm_calls) nCalls=turn.llm_calls;
   }catch(e){
     // fallback demo : delai realiste ~ latence CPU-only observee
     await new Promise(res=>setTimeout(res, 2600+Math.random()*2200));
@@ -331,27 +343,56 @@ async function send(){
   }
   typing.textContent=reply;
   endCarot(nCalls);
+  if(turn){
+    const kind=providersMeta[document.getElementById("model").value]||'infra';
+    if(kind==='tokens'){
+      const el=id=>document.getElementById(id);
+      el("tk-prov").textContent=document.getElementById("model").selectedOptions[0]?.text||"";
+      el("tk-in").textContent=turn.prompt_tokens??"–";
+      el("tk-out").textContent=turn.completion_tokens??"–";
+      el("tk-total").textContent=turn.total_tokens??"–";
+      el("tk-cost").textContent="$"+Number(turn.cost_usd||0).toFixed(4);
+      el("tk-lat").textContent=((turn.latency_ms||0)/1000).toFixed(1)+" s";
+      const tps=(turn.completion_tokens&&turn.latency_ms)?(turn.completion_tokens/(turn.latency_ms/1000)).toFixed(1)+" tok/s":"–";
+      el("tk-tps").textContent=tps;
+      addNote(`🔍 ${document.getElementById("model").selectedOptions[0]?.text} — ${turn.prompt_tokens} + ${turn.completion_tokens} tokens · ${((turn.latency_ms||0)/1000).toFixed(1)} s · $${Number(turn.cost_usd||0).toFixed(4)} · ${turn.llm_calls||nCalls} appel(s)`);
+    }else{
+      const s=ms=>((ms||0)/1000).toFixed(1);
+      const tps=(turn.completion_tokens&&turn.gen_ms)?(turn.completion_tokens/(turn.gen_ms/1000)).toFixed(1):"–";
+      addNote(`🔍 Décomposition backend — Chargement ${s(turn.load_ms)} s · Prompt ${s(turn.prompt_eval_ms)} s · Génération ${s(turn.gen_ms)} s · Overhead MCP+backend ${s(turn.overhead_ms)} s · ${turn.llm_calls||nCalls} appel(s) · ${tps} tok/s`);
+    }
+  }
   btn.disabled=false; input.focus();
 }
 document.getElementById("send").onclick=send;
 document.getElementById("in").addEventListener("keydown",e=>{ if(e.key==="Enter") send(); });
 
 // ======================= BOUCLE =======================
-async function loadModels(){
+let providersMeta={};
+function applyProviderView(){
+  const sel=document.getElementById("model");
+  const tokens=(providersMeta[sel.value]||'infra')==='tokens';
+  const set=(id,show)=>{const el=document.getElementById(id); if(el) el.style.display=show?"":"none";};
+  set("vm-llm",!tokens); set("vm-mcp",!tokens); set("tokenPanel",tokens);
+}
+async function loadProviders(){
   const sel=document.getElementById("model");
   try{
-    const r=await fetch(CFG.modelsUrl,{cache:"no-store"});
+    const r=await fetch(CFG.providersUrl,{cache:"no-store"});
     const d=await r.json();
-    const models=d.models||[];
-    if(models.length){
-      sel.innerHTML=models.map(m=>`<option value="${m}">${m}</option>`).join("");
-      const saved=localStorage.getItem("orbit_model");
-      if(saved && models.includes(saved)) sel.value=saved;
-    }else sel.innerHTML='<option value="">(modèles indispo)</option>';
-  }catch(e){ sel.innerHTML='<option value="">(modèles indispo)</option>'; }
-  sel.onchange=()=>localStorage.setItem("orbit_model", sel.value);
+    const list=d.providers||[];
+    if(list.length){
+      providersMeta={}; list.forEach(p=>providersMeta[p.id]=p.metrics);
+      sel.innerHTML=list.map(p=>`<option value="${p.id}" ${p.available?"":"disabled"}>${p.label}</option>`).join("");
+      const saved=localStorage.getItem("orbit_provider");
+      if(saved && list.some(p=>p.id===saved && p.available)) sel.value=saved;
+      else { const first=list.find(p=>p.available); if(first) sel.value=first.id; }
+    }else sel.innerHTML='<option value="">(cibles indispo)</option>';
+  }catch(e){ sel.innerHTML='<option value="">(cibles indispo)</option>'; }
+  sel.onchange=()=>{ localStorage.setItem("orbit_provider", sel.value); applyProviderView(); };
+  applyProviderView();
 }
-loadModels();
+loadProviders();
 pollAll(); setInterval(pollAll, CFG.pollMs);
 requestAnimationFrame(render);
 </script>
