@@ -4,6 +4,12 @@ Orbit Dashboard is a web app for monitoring an LLM-backed chatbot. You chat with
 language model, and a live dashboard shows the cost, latency, and token usage of
 each message.
 
+## Screenshots
+
+| Infra tab | Chat response | Usage tab |
+|---|---|---|
+| ![Infra tab](docs/screenshots/infra-tab.png) | ![Chat response](docs/screenshots/chat-response.png) | ![Usage tab](docs/screenshots/usage-tab.png) |
+
 The project is two separate programs in one repo:
 
 | Part | Folder | Role |
