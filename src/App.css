@@ -412,7 +412,7 @@
 
 .call-pin-lane {
   position: relative;
-  height: 14px;
+  height: 20px;
   margin-top: 4px;
 }
 
@@ -420,78 +420,36 @@
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 9px;
 }
 
 .call-pin-sent {
-  background: var(--call-sent);
-  box-shadow: 0 0 6px var(--call-sent);
+  background: rgba(255, 77, 77, 0.25);
+  border: 1px solid var(--call-sent);
+  color: var(--text-h);
 }
 
 .call-pin-received {
-  background: var(--call-received);
-  box-shadow: 0 0 6px var(--call-received);
+  background: rgba(46, 213, 115, 0.25);
+  border: 1px solid var(--call-received);
+  color: var(--text-h);
 }
 
 .call-pin-error {
   background: transparent;
   border: 1.5px dashed var(--accent-3);
+  color: var(--accent-3);
 }
 
-.call-pin-tooltip {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  min-width: 180px;
-  max-width: 320px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  padding: 8px 10px;
-  font-size: 11px;
-  color: var(--text-h);
-}
-
-.call-pin-tooltip-kind {
-  font-family: var(--heading);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 10px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-
-.call-pin-tooltip-summary {
-  font-family: var(--mono);
-  word-break: break-word;
-  margin-bottom: 6px;
-}
-
-.call-pin-tooltip-toggle {
-  font-size: 10px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-h);
-  padding: 2px 6px;
-  cursor: pointer;
-}
-
-.call-pin-tooltip-detail {
-  margin-top: 6px;
-  max-height: 160px;
-  overflow: auto;
-  font-family: var(--mono);
-  font-size: 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
+.call-pin-highlighted {
+  box-shadow: 0 0 0 2px var(--accent-border);
 }
 
 .vm-readings {

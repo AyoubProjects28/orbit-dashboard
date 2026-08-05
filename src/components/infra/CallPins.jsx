@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { PADDING, timeRatio } from './orbitChart'
 import { WINDOW_S } from '../../hooks/useVmMetrics'
 
@@ -6,44 +5,45 @@ function pinLeft(ratio) {
   return `calc(${PADDING.left}px + (100% - ${PADDING.left + PADDING.right}px) * ${ratio})`
 }
 
-function CallPins({ events = [] }) {
-  const [hoveredId, setHoveredId] = useState(null)
-  const [expandedId, setExpandedId] = useState(null)
+// Un appel produit une ou deux pastilles : l'envoi (toujours) et la réponse
+// (dès qu'elle est arrivée), toutes deux numérotées avec `call.seq` — c'est
+// ce qui rend la latence lisible à l'œil (v2 §2). Plus de tooltip : le
+// survol ne sert plus qu'au surlignage croisé avec la bande de carrés (§5).
+function pinsForCall(call) {
+  const pins = [{ key: `${call.callId}-sent`, callId: call.callId, seq: call.seq, ts: call.ts0, direction: 'sent' }]
+  if (call.status !== 'pending') {
+    pins.push({
+      key: `${call.callId}-${call.status}`,
+      callId: call.callId,
+      seq: call.seq,
+      ts: call.ts1,
+      direction: call.status === 'error' ? 'error' : 'received',
+    })
+  }
+  return pins
+}
 
+function CallPins({ calls = [], highlightedCallId, onHighlightCall }) {
   const now = Date.now() / 1000
   const cutoff = now - WINDOW_S
-  const visible = events.filter((event) => event.ts >= cutoff)
+  const visible = calls.filter((call) => call.ts0 >= cutoff)
+  const pins = visible.flatMap(pinsForCall)
 
   return (
     <div className="call-pin-lane">
-      {visible.map((event) => {
-        const ratio = timeRatio({ t: event.ts, now, windowS: WINDOW_S })
-        const isOpen = hoveredId === event.id
+      {pins.map((pin) => {
+        const ratio = timeRatio({ t: pin.ts, now, windowS: WINDOW_S })
+        const highlighted = pin.callId === highlightedCallId
         return (
           <div
-            key={event.id}
-            className={`call-pin call-pin-${event.direction}`}
+            key={pin.key}
+            className={`call-pin call-pin-${pin.direction}${highlighted ? ' call-pin-highlighted' : ''}`}
             style={{ left: pinLeft(ratio) }}
-            data-testid={`call-pin-${event.direction}`}
-            onMouseEnter={() => setHoveredId(event.id)}
-            onMouseLeave={() => setHoveredId((id) => (id === event.id ? null : id))}
+            data-testid={`call-pin-${pin.direction}`}
+            onMouseEnter={() => onHighlightCall?.(pin.callId)}
+            onMouseLeave={() => onHighlightCall?.(null)}
           >
-            {isOpen && (
-              <div className="call-pin-tooltip">
-                <div className="call-pin-tooltip-kind">{event.kind === 'llm' ? 'LLM call' : 'MCP call'}</div>
-                <div className="call-pin-tooltip-summary">{event.summary}</div>
-                <button
-                  type="button"
-                  className="call-pin-tooltip-toggle"
-                  onClick={() => setExpandedId((id) => (id === event.id ? null : event.id))}
-                >
-                  {expandedId === event.id ? 'Hide payload' : 'View payload'}
-                </button>
-                {expandedId === event.id && (
-                  <pre className="call-pin-tooltip-detail">{JSON.stringify(event.detail, null, 2)}</pre>
-                )}
-              </div>
-            )}
+            {pin.seq}
           </div>
         )
       })}
