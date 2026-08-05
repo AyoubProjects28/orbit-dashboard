@@ -1,7 +1,7 @@
 import { VMS } from '../../hooks/useVmMetrics'
 import VmCard from './VmCard'
 
-function InfraTab({ latest, online, buffersRef, samplingRef, eventsByVm }) {
+function InfraTab({ latest, online, buffersRef, samplingRef, callsByVm, highlightedCallId, onHighlightCall }) {
   return (
     <div className="infra-tab">
       <div className="vm-grid">
@@ -13,7 +13,9 @@ function InfraTab({ latest, online, buffersRef, samplingRef, eventsByVm }) {
             online={online[vm]}
             buffersRef={buffersRef}
             samplingRef={samplingRef}
-            events={eventsByVm?.[vm]}
+            calls={callsByVm?.[vm]}
+            highlightedCallId={highlightedCallId}
+            onHighlightCall={onHighlightCall}
           />
         ))}
       </div>
