@@ -25,6 +25,13 @@ export function appendSampling(turnId, sampling) {
   appendLine({ type: 'sampling', turn_id: turnId, ...sampling })
 }
 
+// calls: résumés + timings seulement, pas de payloads (voir callAggregate.js
+// et v2 §6.1) — c'est ce qui garde readLogs() bon marché malgré la relecture
+// intégrale du fichier à chaque GET /api/logs.
+export function appendCalls(turnId, calls) {
+  appendLine({ type: 'calls', turn_id: turnId, calls })
+}
+
 function readEntries() {
   if (!fs.existsSync(LOG_FILE)) return []
   return fs
@@ -52,7 +59,7 @@ export function readLogs() {
   for (const entry of readEntries()) {
     if (entry.type === 'turn') {
       const { type: _type, ...turn } = entry
-      const withSampling = { ...turn, sampling: null }
+      const withSampling = { ...turn, sampling: null, calls: null }
       turnsById.set(turn.id, withSampling)
       if (!sessions.has(turn.session_id)) {
         sessions.set(turn.session_id, {
@@ -66,6 +73,9 @@ export function readLogs() {
     } else if (entry.type === 'sampling') {
       const turn = turnsById.get(entry.turn_id)
       if (turn) turn.sampling = { window_s: entry.window_s, vms: entry.vms }
+    } else if (entry.type === 'calls') {
+      const turn = turnsById.get(entry.turn_id)
+      if (turn) turn.calls = entry.calls
     }
   }
 
