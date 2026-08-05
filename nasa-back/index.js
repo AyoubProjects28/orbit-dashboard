@@ -13,7 +13,8 @@ import { getMockMetrics, recordChatTurn } from './mock.js'
 import * as mcpClient from './mcpClient.js'
 import * as providers from './providers.js'
 import * as sessionLog from './sessionLog.js'
-import { onCall, offCall } from './callEvents.js'
+import { onCall, offCall, turnContext } from './callEvents.js'
+import { aggregateCalls } from './callAggregate.js'
 const app = express()
 const PORT = 3001
 app.use(express.json())
@@ -35,12 +36,26 @@ app.post('/api/chat', async (req, res) => {
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message is required' })
   }
+
+  // turnId généré AVANT le dispatch (pas après, comme en v1) pour pouvoir
+  // l'utiliser à la fois comme contexte async (turnContext.run) et comme
+  // filtre du collecteur ci-dessous — voir v2 §6.4.
+  const turnId = `t_${randomUUID()}`
+  const collected = []
+  const collector = (event) => {
+    // Le bus est global : sans ce filtre, deux tours simultanés (deux
+    // onglets ouverts) verraient chacun leur collecteur ramasser les appels
+    // de l'autre.
+    if (event.turnId === turnId) collected.push(event)
+  }
+  onCall(collector)
+
   try {
-    const { reply, turnMetrics } = await providers.dispatch(provider, {
+    const { reply, turnMetrics } = await turnContext.run({ turnId }, () => providers.dispatch(provider, {
       message,
       tools: mcpClient.getTools(),
       callTool: mcpClient.callTool,
-    })
+    }))
     recordChatTurn({
       promptTokens: turnMetrics.prompt_tokens,
       completionTokens: turnMetrics.completion_tokens,
@@ -51,7 +66,6 @@ app.post('/api/chat', async (req, res) => {
       costUsd: turnMetrics.cost_usd,
     })
 
-    const turnId = `t_${randomUUID()}`
     // `route` reste "llm-full" en dur jusqu'à l'étape 4 (rebranchement de
     // meta-tool.js dans le dispatch) — voir spec §5.1.
     sessionLog.appendTurn({
@@ -68,10 +82,15 @@ app.post('/api/chat', async (req, res) => {
       metrics: turnMetrics,
     })
 
+    const calls = aggregateCalls(collected)
+    if (calls.length) sessionLog.appendCalls(turnId, calls)
+
     res.json({ reply, turnMetrics, turn_id: turnId })
   } catch (err) {
     console.error('[chat] error:', err.message)
     res.status(502).json({ error: err.message || 'Failed to answer' })
+  } finally {
+    offCall(collector)
   }
 })
 
