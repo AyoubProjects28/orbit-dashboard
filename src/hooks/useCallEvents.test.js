@@ -31,26 +31,65 @@ describe('useCallEvents', () => {
     expect(FakeEventSource.instances[0].url).toBe('/api/call-events')
   })
 
-  it('range chaque event reçu sous sa VM', () => {
-    const { result } = renderHook(() => useCallEvents())
-    act(() => {
-      emit(FakeEventSource.instances[0], { id: '1', vm: 'mcp', kind: 'mcp', direction: 'sent', ts: Date.now() / 1000, summary: 'x', detail: {} })
-    })
-    expect(result.current.eventsByVm.mcp).toHaveLength(1)
-    expect(result.current.eventsByVm.llm).toHaveLength(0)
-  })
-
-  it('élague les events sortis de la fenêtre de 60 s à la réception d\'un nouvel event', () => {
+  it('un event sent seul crée un appel pending sous sa VM', () => {
     const { result } = renderHook(() => useCallEvents())
     const now = Date.now() / 1000
     act(() => {
-      emit(FakeEventSource.instances[0], { id: 'old', vm: 'llm', kind: 'llm', direction: 'sent', ts: now - 120, summary: 'old', detail: {} })
+      emit(FakeEventSource.instances[0], { vm: 'mcp', callId: 'c1', direction: 'sent', ts: now, summary: '→ x', detail: {} })
     })
-    expect(result.current.eventsByVm.llm).toHaveLength(1)
+    expect(result.current.callsByVm.mcp).toHaveLength(1)
+    expect(result.current.callsByVm.mcp[0]).toMatchObject({ callId: 'c1', seq: 1, status: 'pending', ts1: null })
+    expect(result.current.callsByVm.llm).toHaveLength(0)
+  })
+
+  it('un event received complète l\'appel existant sans le dupliquer', () => {
+    const { result } = renderHook(() => useCallEvents())
+    const now = Date.now() / 1000
     act(() => {
-      emit(FakeEventSource.instances[0], { id: 'new', vm: 'llm', kind: 'llm', direction: 'sent', ts: now, summary: 'new', detail: {} })
+      emit(FakeEventSource.instances[0], { vm: 'mcp', callId: 'c1', direction: 'sent', ts: now, summary: '→ x', detail: {} })
     })
-    expect(result.current.eventsByVm.llm.map((e) => e.id)).toEqual(['new'])
+    act(() => {
+      emit(FakeEventSource.instances[0], { vm: 'mcp', callId: 'c1', direction: 'received', ts: now + 1, summary: '← y', detail: {} })
+    })
+    expect(result.current.callsByVm.mcp).toHaveLength(1)
+    const call = result.current.callsByVm.mcp[0]
+    expect(call.status).toBe('done')
+    expect(call.received.summary).toBe('← y')
+    expect(call.seq).toBe(1)
+  })
+
+  it('un event error marque l\'appel en erreur', () => {
+    const { result } = renderHook(() => useCallEvents())
+    const now = Date.now() / 1000
+    act(() => {
+      emit(FakeEventSource.instances[0], { vm: 'llm', callId: 'c1', direction: 'sent', ts: now, summary: '→ x', detail: {} })
+      emit(FakeEventSource.instances[0], { vm: 'llm', callId: 'c1', direction: 'error', ts: now + 1, summary: '✗ boom', detail: {} })
+    })
+    expect(result.current.callsByVm.llm[0].status).toBe('error')
+  })
+
+  it('attribue seq de façon monotone et le garde stable après expiration d\'un appel antérieur', () => {
+    const { result } = renderHook(() => useCallEvents())
+    const now = Date.now() / 1000
+    act(() => {
+      emit(FakeEventSource.instances[0], { vm: 'llm', callId: 'first', direction: 'sent', ts: now - 65, summary: 'a', detail: {} })
+      emit(FakeEventSource.instances[0], { vm: 'llm', callId: 'second', direction: 'sent', ts: now - 1, summary: 'b', detail: {} })
+    })
+    expect(result.current.callsByVm.llm.map((c) => c.callId)).toEqual(['second'])
+    expect(result.current.callsByVm.llm[0].seq).toBe(2)
+  })
+
+  it('expire un appel selon ts0, même si une réponse fraîche vient d\'arriver', () => {
+    const { result } = renderHook(() => useCallEvents())
+    const now = Date.now() / 1000
+    act(() => {
+      emit(FakeEventSource.instances[0], { vm: 'llm', callId: 'old', direction: 'sent', ts: now - 70, summary: 's', detail: {} })
+    })
+    expect(result.current.callsByVm.llm).toHaveLength(0)
+    act(() => {
+      emit(FakeEventSource.instances[0], { vm: 'llm', callId: 'old', direction: 'received', ts: now, summary: 'r', detail: {} })
+    })
+    expect(result.current.callsByVm.llm).toHaveLength(0)
   })
 
   it('ferme la connexion au démontage', () => {
@@ -65,6 +104,14 @@ describe('useCallEvents', () => {
     act(() => {
       FakeEventSource.instances[0].onmessage({ data: 'not json' })
     })
-    expect(result.current.eventsByVm).toEqual({ llm: [], mcp: [] })
+    expect(result.current.callsByVm).toEqual({ llm: [], mcp: [] })
+  })
+
+  it('ignore un event sans vm ou sans callId', () => {
+    const { result } = renderHook(() => useCallEvents())
+    act(() => {
+      emit(FakeEventSource.instances[0], { direction: 'sent', ts: Date.now() / 1000, summary: 'x', detail: {} })
+    })
+    expect(result.current.callsByVm).toEqual({ llm: [], mcp: [] })
   })
 })
