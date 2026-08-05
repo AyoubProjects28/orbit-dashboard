@@ -901,3 +901,58 @@
 .call-square-highlighted {
   background: var(--accent-bg);
 }
+
+/* ---- Turn row: collapsible calls section (Logs tab) ---- */
+.turn-row-calls {
+  margin-top: 6px;
+}
+
+.turn-row-calls-summary {
+  cursor: pointer;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.turn-row-calls-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.turn-row-call {
+  display: grid;
+  grid-template-columns: 16px 32px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-h);
+}
+
+.turn-row-call-seq {
+  color: var(--text);
+}
+
+.turn-row-call-vm {
+  color: var(--text);
+}
+
+.turn-row-call-summaries {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.turn-row-call-summaries span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.turn-row-call-latency {
+  color: var(--accent-2);
+}
