@@ -39,9 +39,9 @@ function CallDetail({ call, onClose }) {
   }, [onClose])
 
   return (
-    <div className="call-detail" role="dialog" aria-label={`Appel ${call.seq}`}>
+    <div className="call-detail" role="dialog" aria-label={`Call ${call.seq}`}>
       <div className="call-detail-head">
-        <span>Appel {call.seq} · {call.vm.toUpperCase()}</span>
+        <span>Call {call.seq} · {call.vm.toUpperCase()}</span>
         <button type="button" className="call-detail-close" aria-label="Close" onClick={onClose}>×</button>
       </div>
 
