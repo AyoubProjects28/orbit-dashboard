@@ -9,6 +9,7 @@ import InfraTab from './components/infra/InfraTab'
 import CallStrip from './components/infra/CallStrip'
 import UsageTab from './components/usage/UsageTab'
 import LogsTab from './components/logs/LogsTab'
+import BenchmarkTab from './components/benchmark/BenchmarkTab'
 import './App.css'
 
 const POLL_INTERVAL_MS = 12000
@@ -85,6 +86,10 @@ function App() {
       content: metrics ? <UsageTab data={metrics} /> : <p className="status">Loading metrics…</p>,
     },
     { id: 'logs', label: 'Logs', content: <LogsTab /> },
+    // Benchmark consumes neither metrics nor vm: its data is a scores.jsonl
+    // dropped by hand, outside the Orbit stack. It's mounted with no props,
+    // to the right of Logs.
+    { id: 'benchmark', label: 'Benchmark', content: <BenchmarkTab /> },
   ]
 
   return (

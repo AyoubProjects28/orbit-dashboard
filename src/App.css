@@ -956,3 +956,173 @@
 .turn-row-call-latency {
   color: var(--accent-2);
 }
+
+/* --- Benchmark tab --------------------------------------------------------- */
+
+.benchmark-tab {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.benchmark-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.benchmark-header h2 {
+  margin: 0;
+}
+
+.benchmark-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.benchmark-file {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+}
+
+/* The native file input is unreadable in the Orbit palette: hide it and
+   style the wrapping <label> instead. The label keeps the input's
+   aria-label, so keyboard and screen-reader use keep working. */
+.benchmark-upload-btn {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text-h);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.benchmark-upload-btn:hover {
+  background: rgba(255, 46, 136, 0.2);
+}
+
+.benchmark-upload-btn input {
+  display: none;
+}
+
+.benchmark-clear-btn {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.benchmark-clear-btn:hover {
+  color: var(--text-h);
+}
+
+.benchmark-warning {
+  color: var(--accent-3);
+  font-size: 12px;
+}
+
+.bubble-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bubble-grid {
+  stroke: rgba(255, 255, 255, 0.06);
+}
+
+.bubble-rank-line {
+  stroke: rgba(255, 255, 255, 0.04);
+}
+
+.bubble-batch-split {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-dasharray: 4 4;
+}
+
+.bubble-band {
+  fill: rgba(35, 230, 209, 0.07);
+}
+
+.bubble-tick {
+  fill: #7d6f99;
+  font-family: var(--mono);
+  font-size: 9.5px;
+}
+
+.bubble-axis-label {
+  fill: var(--text);
+  font-family: var(--sans);
+  font-size: 10.5px;
+}
+
+.bubble-cost {
+  fill: var(--text-h);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.bubble-clock {
+  fill: #7d6f99;
+  font-family: var(--mono);
+  font-size: 8px;
+}
+
+.bubble-day {
+  fill: var(--text-h);
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.benchmark-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: 10.5px;
+  color: #7d6f99;
+  margin-top: 10px;
+}
+
+.benchmark-legend i {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: -2px;
+  box-sizing: border-box;
+}
+
+.benchmark-legend-hollow {
+  background: transparent;
+  border: 2px dashed var(--accent-3);
+}
+
+.benchmark-legend-band {
+  background: rgba(35, 230, 209, 0.18);
+  border: 1px solid rgba(35, 230, 209, 0.35);
+  border-radius: 2px;
+}
+
+.benchmark-footnote {
+  font-size: 10.5px;
+  color: #7d6f99;
+  font-style: italic;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
