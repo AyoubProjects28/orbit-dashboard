@@ -6,6 +6,7 @@ import { useSession } from './hooks/useSession'
 import Tabs from './components/Tabs'
 import ChatPanel from './components/ChatPanel'
 import InfraTab from './components/infra/InfraTab'
+import CallStrip from './components/infra/CallStrip'
 import UsageTab from './components/usage/UsageTab'
 import LogsTab from './components/logs/LogsTab'
 import './App.css'
@@ -29,6 +30,7 @@ function App() {
   const [metrics, setMetrics] = useState(null)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('infra')
+  const [highlightedCallId, setHighlightedCallId] = useState(null)
 
   // Monté ICI, au-dessus des onglets : le tampon de métriques doit survivre
   // aux changements d'onglet, sinon un prompt envoyé depuis Usage ou Logs
@@ -53,6 +55,14 @@ function App() {
     return () => clearInterval(interval)
   }, [refreshMetrics])
 
+  const trailing = activeTab === 'infra' ? (
+    <CallStrip
+      callsByVm={callEvents.callsByVm}
+      highlightedCallId={highlightedCallId}
+      onHighlightCall={setHighlightedCallId}
+    />
+  ) : null
+
   const tabs = [
     {
       id: 'infra',
@@ -63,7 +73,9 @@ function App() {
           online={vm.online}
           buffersRef={vm.buffersRef}
           samplingRef={vm.samplingRef}
-          eventsByVm={callEvents.eventsByVm}
+          callsByVm={callEvents.callsByVm}
+          highlightedCallId={highlightedCallId}
+          onHighlightCall={setHighlightedCallId}
         />
       ),
     },
@@ -99,7 +111,7 @@ function App() {
           sessionId={session.sessionId}
           lockSessionName={session.lockSessionName}
         />
-        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} trailing={trailing} />
       </div>
     </div>
   )

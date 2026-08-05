@@ -65,4 +65,14 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText(/No prompts logged yet/)).toBeInTheDocument())
     expect(screen.getByRole('region', { name: 'Chat' })).toBeInTheDocument()
   })
+
+  it('la bande d\'appels n\'apparaît que sur l\'onglet Infra', async () => {
+    render(<App />)
+    await waitFor(() => expect(screen.getByText(/LLM-TEST01/)).toBeInTheDocument())
+    expect(document.querySelector('.call-strip-wrap')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Usage' }))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Token usage' })).toBeInTheDocument())
+    expect(document.querySelector('.call-strip-wrap')).not.toBeInTheDocument()
+  })
 })
