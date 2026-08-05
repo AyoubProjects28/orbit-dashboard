@@ -838,3 +838,66 @@
   font-size: 11px;
   color: var(--accent-2);
 }
+
+/* ---- Call strip (Infra tab, tab-bar trailing slot) ---- */
+.call-strip-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.call-strip {
+  display: flex;
+  gap: 4px;
+  height: 100%;
+  overflow-x: auto;
+  align-items: stretch;
+}
+
+.call-strip-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.call-strip-cell {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-square {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-h);
+}
+
+.call-square-pending {
+  border: 1.5px solid var(--call-sent);
+}
+
+.call-square-done {
+  border: 1.5px solid var(--call-received);
+}
+
+.call-square-error {
+  border: 1.5px dashed var(--accent-3);
+  color: var(--accent-3);
+}
+
+.call-square-selected {
+  box-shadow: 0 0 0 2px var(--accent-border);
+}
+
+.call-square-highlighted {
+  background: var(--accent-bg);
+}
