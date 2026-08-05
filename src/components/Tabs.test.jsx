@@ -38,4 +38,14 @@ describe('Tabs', () => {
     render(<Tabs tabs={tabs} active="inexistant" onChange={() => {}} />)
     expect(screen.queryByText('contenu infra')).not.toBeInTheDocument()
   })
+
+  it('rend le nœud trailing après les onglets quand fourni', () => {
+    render(<Tabs tabs={tabs} active="infra" onChange={() => {}} trailing={<div data-testid="trailing">strip</div>} />)
+    expect(screen.getByTestId('trailing')).toBeInTheDocument()
+  })
+
+  it('ne rend rien de plus si trailing est omis', () => {
+    render(<Tabs tabs={tabs} active="infra" onChange={() => {}} />)
+    expect(screen.queryByTestId('trailing')).not.toBeInTheDocument()
+  })
 })

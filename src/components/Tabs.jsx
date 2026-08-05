@@ -1,7 +1,7 @@
 // Coquille à onglets. Elle ne connaît que des libellés et des nœuds déjà
 // construits : un onglet ignore totalement qu'il vit dans un onglet, ce qui
 // permet de le tester et de le déplacer sans toucher à ce fichier.
-function Tabs({ tabs, active, onChange }) {
+function Tabs({ tabs, active, onChange, trailing }) {
   const current = tabs.find((tab) => tab.id === active)
 
   return (
@@ -19,6 +19,7 @@ function Tabs({ tabs, active, onChange }) {
             {tab.label}
           </button>
         ))}
+        {trailing}
       </div>
       <div className="tab-panel" role="tabpanel">
         {current?.content ?? null}
