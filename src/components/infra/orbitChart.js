@@ -16,7 +16,18 @@ export const CHART_COLORS = {
   label: '#6b5e8c',
 }
 
-const PADDING = { left: 30, right: 8, top: 8, bottom: 16 }
+export const PADDING = { left: 30, right: 8, top: 8, bottom: 16 }
+
+// Position relative (0..1) d'un instant t dans la fenêtre glissante.
+// Utilisée par CallPins pour positionner ses puces en CSS (pas de contexte
+// 2D ni de largeur en pixels côté React) — volontairement clampée, à
+// l'inverse du `toX` interne de drawChart qui doit rester non clampé pour
+// les courbes CPU/RAM (voir le commentaire ci-dessus).
+export function timeRatio({ t, now, windowS }) {
+  const ratio = (t - (now - windowS)) / windowS
+  return Math.min(1, Math.max(0, ratio))
+}
+
 const GRID_LEVELS = [0, 25, 50, 75, 100]
 
 export function drawChart(ctx, { buffer, sampling, now, width, height, windowS }) {

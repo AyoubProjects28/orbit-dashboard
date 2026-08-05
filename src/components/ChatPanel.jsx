@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { sendChatMessage } from '../api/chat'
 import { fetchProviders } from '../api/providers'
+import { postTurnSampling } from '../api/logs'
 
 const PROVIDER_STORAGE_KEY = 'orbit_provider'
 
@@ -45,13 +46,20 @@ function TurnMetrics({ metrics }) {
 // Envoie les messages à /api/chat et encadre chaque requête par le carottage :
 // startSampling() juste avant l'appel, endSampling() dès la réponse (ou l'échec),
 // pour que la fenêtre mesurée corresponde exactement à la requête.
-function ChatPanel({ onMessageSent, startSampling, endSampling }) {
+function ChatPanel({ onMessageSent, startSampling, endSampling, sessionId, lockSessionName }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [providers, setProviders] = useState([])
   const [provider, setProvider] = useState('')
+
+  // Un nouvel id de session (bouton "New session") doit repartir d'une
+  // conversation vierge à l'écran, pas seulement grouper les tours suivants
+  // dans Logs — sinon le clic n'a aucun effet visible pour l'utilisateur.
+  useEffect(() => {
+    setMessages([])
+  }, [sessionId])
 
   useEffect(() => {
     let cancelled = false
@@ -80,14 +88,22 @@ function ChatPanel({ onMessageSent, startSampling, endSampling }) {
     if (!text || sending) return
 
     const history = messages.map(({ role, content }) => ({ role, content }))
+    // Fige le nom de session sur ce premier message plutôt qu'au clic sur
+    // "New session" : la session "commence" côté Logs quand le premier tour
+    // part, pas avant (voir hooks/useSession.js).
+    const sessionName = lockSessionName()
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setInput('')
     setSending(true)
     setError(null)
     startSampling()
 
+    let turnId = null
     try {
-      const { reply, turnMetrics } = await sendChatMessage(text, { history, provider })
+      const { reply, turnMetrics, turn_id: id } = await sendChatMessage(text, {
+        history, provider, sessionId, sessionName,
+      })
+      turnId = id
       setMessages((prev) => [...prev, { role: 'assistant', content: reply, turnMetrics }])
       onMessageSent?.()
     } catch (err) {
@@ -95,7 +111,13 @@ function ChatPanel({ onMessageSent, startSampling, endSampling }) {
     } finally {
       // Toujours refermer la fenêtre de carottage, même en échec : sinon la
       // bande ambrée resterait ouverte indéfiniment sur les courbes.
-      endSampling()
+      const sampling = endSampling()
+      // Le tour est déjà journalisé côté backend dès la réponse (voir
+      // POST /api/chat) ; le carottage arrive en second, une fois la fenêtre
+      // requête→réponse mesurée côté client (voir spec §4.3).
+      if (turnId && sampling) {
+        postTurnSampling(turnId, sampling).catch(() => {})
+      }
       setSending(false)
     }
   }

@@ -44,4 +44,12 @@ describe('VmCard', () => {
     rerender(<VmCard vm="llm" sample={sample} online={false} {...refs} />)
     expect(screen.getByTestId('vm-dot')).toHaveClass('dot-off')
   })
+
+  it('rend un point par event pour sa VM', () => {
+    const events = [
+      { id: '1', vm: 'llm', kind: 'llm', direction: 'sent', ts: Date.now() / 1000, summary: 'x', detail: {} },
+    ]
+    render(<VmCard vm="llm" sample={sample} online {...refs} events={events} />)
+    expect(screen.getByTestId('call-pin-sent')).toBeInTheDocument()
+  })
 })

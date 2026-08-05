@@ -3,6 +3,7 @@
 // callTool() exécute un outil par son nom à la demande de index.js.
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { traceCall } from './callEvents.js'
 const MCP_URL = process.env.ORBIT_MCP_URL || 'http://172.18.53.9:8000/mcp'
 const MCP_TOKEN = process.env.ORBIT_MCP_TOKEN
 let client = null
@@ -30,5 +31,14 @@ export async function callTool(name, args) {
   if (!client) {
     throw new Error('mcpClient not initialized — call init() first.')
   }
-  return client.callTool({ name, arguments: args })
+  return traceCall({
+    vm: 'mcp',
+    kind: 'mcp',
+    sentSummary: `→ ${name}(${JSON.stringify(args ?? {}).slice(0, 80)})`,
+    sentDetail: { tool: name, arguments: args },
+    describeResult: (result) => ({
+      summary: `← ${name} (${JSON.stringify(result).length} bytes)`,
+      detail: { tool: name, result },
+    }),
+  }, () => client.callTool({ name, arguments: args }))
 }

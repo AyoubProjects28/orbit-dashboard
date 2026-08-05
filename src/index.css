@@ -12,6 +12,8 @@
   --accent-3: #ffb63d;
   --accent-bg: rgba(255, 46, 136, 0.12);
   --accent-border: rgba(255, 46, 136, 0.4);
+  --call-sent: #ff4d4d;
+  --call-received: #2ed573;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 
   --sans: 'Sora', sans-serif;

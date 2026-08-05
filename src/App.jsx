@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchMetrics } from './api/metrics'
 import { useVmMetrics } from './hooks/useVmMetrics'
+import { useCallEvents } from './hooks/useCallEvents'
+import { useSession } from './hooks/useSession'
 import Tabs from './components/Tabs'
 import ChatPanel from './components/ChatPanel'
 import InfraTab from './components/infra/InfraTab'
@@ -9,6 +11,19 @@ import LogsTab from './components/logs/LogsTab'
 import './App.css'
 
 const POLL_INTERVAL_MS = 12000
+
+// Horloge distincte du nom de session : celui-ci doit rester figé à la
+// création (voir hooks/useSession.js — il sert d'étiquette de regroupement
+// dans Logs et doit correspondre à ce qui y est écrit), donc l'heure "live"
+// est un affichage séparé plutôt qu'un remplacement de sessionName.
+function useClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return now
+}
 
 function App() {
   const [metrics, setMetrics] = useState(null)
@@ -19,6 +34,9 @@ function App() {
   // aux changements d'onglet, sinon un prompt envoyé depuis Usage ou Logs
   // produirait un carottage sans baseline. Voir hooks/useVmMetrics.js.
   const vm = useVmMetrics()
+  const callEvents = useCallEvents()
+  const session = useSession()
+  const clock = useClock()
 
   const refreshMetrics = useCallback(() => {
     fetchMetrics()
@@ -43,9 +61,9 @@ function App() {
         <InfraTab
           latest={vm.latest}
           online={vm.online}
-          lastSampling={vm.lastSampling}
           buffersRef={vm.buffersRef}
           samplingRef={vm.samplingRef}
+          eventsByVm={callEvents.eventsByVm}
         />
       ),
     },
@@ -62,6 +80,13 @@ function App() {
       <header className="app-header">
         <h1>Orbit Dashboard</h1>
         <p className="subtitle">LLM usage at a glance</p>
+        <div className="session-indicator">
+          <span className="live-clock">{clock.toLocaleString()}</span>
+          {session.sessionName && <span className="session-name">{session.sessionName}</span>}
+          <button type="button" className="session-new-btn" onClick={session.startNewSession}>
+            New session
+          </button>
+        </div>
       </header>
 
       {error && <p className="status status-error">Could not load metrics: {error}</p>}
@@ -71,6 +96,8 @@ function App() {
           onMessageSent={refreshMetrics}
           startSampling={vm.startSampling}
           endSampling={vm.endSampling}
+          sessionId={session.sessionId}
+          lockSessionName={session.lockSessionName}
         />
         <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
       </div>

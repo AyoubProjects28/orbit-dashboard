@@ -1,4 +1,5 @@
 import VmChart from './VmChart'
+import CallPins from './CallPins'
 
 export const VM_META = {
   llm: { name: 'LLM-TEST01', role: 'Ollama', ip: '172.18.53.7', accent: 'var(--accent-2)' },
@@ -20,7 +21,7 @@ function Reading({ id, label, children }) {
   )
 }
 
-function VmCard({ vm, sample, online, buffersRef, samplingRef }) {
+function VmCard({ vm, sample, online, buffersRef, samplingRef, events = [] }) {
   const meta = VM_META[vm]
 
   return (
@@ -34,11 +35,14 @@ function VmCard({ vm, sample, online, buffersRef, samplingRef }) {
       </header>
 
       <VmChart vm={vm} buffersRef={buffersRef} samplingRef={samplingRef} />
+      <CallPins events={events} />
 
       <div className="vm-legend">
         <span><i className="swatch" style={{ background: 'var(--accent-2)' }} />CPU %</span>
         <span><i className="swatch" style={{ background: 'var(--accent)' }} />RAM %</span>
         <span style={{ color: 'var(--accent-3)' }}>▮ request / response window</span>
+        <span style={{ color: 'var(--call-sent)' }}>● sent</span>
+        <span style={{ color: 'var(--call-received)' }}>● received</span>
       </div>
 
       <div className="vm-readings">

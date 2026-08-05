@@ -19,6 +19,7 @@ beforeEach(() => {
     if (target.includes('/api/vm-metrics')) return { ok: true, json: async () => ({}) }
     if (target.includes('/api/providers')) return { ok: true, json: async () => ({ providers: [] }) }
     if (target.includes('/api/metrics')) return { ok: true, json: async () => METRICS }
+    if (target.includes('/api/logs')) return { ok: true, json: async () => ({ sessions: [] }) }
     return { ok: true, json: async () => ({}) }
   })
 })
@@ -55,12 +56,13 @@ describe('App', () => {
     expect(screen.getByRole('region', { name: 'Chat' })).toBeInTheDocument()
   })
 
-  it('bascule sur Logs et y affiche le placeholder d\'étape 3', async () => {
+  it('bascule sur Logs et y affiche les sessions journalisées', async () => {
     render(<App />)
     await waitFor(() => expect(screen.getByText(/LLM-TEST01/)).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('tab', { name: 'Logs' }))
     expect(screen.getByRole('region', { name: 'Session history' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText(/No prompts logged yet/)).toBeInTheDocument())
     expect(screen.getByRole('region', { name: 'Chat' })).toBeInTheDocument()
   })
 })

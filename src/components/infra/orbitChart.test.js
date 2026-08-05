@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { drawChart, CHART_COLORS } from './orbitChart'
+import { drawChart, CHART_COLORS, timeRatio } from './orbitChart'
 
 // Contexte 2D espion : enregistre chaque appel et chaque affectation de style,
 // ce qui permet d'asserter sur ce qui a été dessiné sans canvas réel.
@@ -97,5 +97,21 @@ describe('drawChart', () => {
     const ctx = spyCtx()
     drawChart(ctx, { ...base, sampling: { start: 100, end: 200 } })
     expect(names(ctx)).not.toContain('fillRect')
+  })
+})
+
+describe('timeRatio', () => {
+  it('renvoie 0 au début de la fenêtre et 1 à la fin', () => {
+    expect(timeRatio({ t: 940, now: 1000, windowS: 60 })).toBe(0)
+    expect(timeRatio({ t: 1000, now: 1000, windowS: 60 })).toBe(1)
+  })
+
+  it('est linéaire entre les deux bornes', () => {
+    expect(timeRatio({ t: 970, now: 1000, windowS: 60 })).toBeCloseTo(0.5)
+  })
+
+  it('clampe en dehors de la fenêtre', () => {
+    expect(timeRatio({ t: 800, now: 1000, windowS: 60 })).toBe(0)
+    expect(timeRatio({ t: 1100, now: 1000, windowS: 60 })).toBe(1)
   })
 })

@@ -44,10 +44,10 @@ export async function listProviders() {
 
 export async function dispatch(providerId, ctx) {
   const id = providerId || ''
-  if (id.startsWith('ollama:')) return ollama.run({ ...ctx, baseUrl: LLM_URL, model: id.slice(7) })
+  if (id.startsWith('ollama:')) return ollama.run({ ...ctx, baseUrl: LLM_URL, model: id.slice(7), vm: 'llm' })
   if (id.startsWith('ec2:'))    return ollama.run({ ...ctx, baseUrl: EC2_URL, model: id.slice(4) })
   if (id === 'claude')          return claude.run({ ...ctx, apiKey: ANTHROPIC_KEY, model: ANTHROPIC_MODEL })
   if (id === 'lambda')          return lambda.run({ ...ctx, url: LAMBDA_URL })
   // défaut : Ollama local, modèle par défaut
-  return ollama.run({ ...ctx, baseUrl: LLM_URL, model: LLM_MODEL })
+  return ollama.run({ ...ctx, baseUrl: LLM_URL, model: LLM_MODEL, vm: 'llm' })
 }

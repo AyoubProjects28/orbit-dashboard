@@ -1,10 +1,11 @@
 // Provider Ollama (local LLM-TEST01 OU instance EC2 GPU) — même API, URL différente.
 // Gère la boucle de tool-calling au format Ollama et renvoie des métriques INFRA.
 import axios from 'axios'
+import { traceCall } from './callEvents.js'
 const ns2ms = (v) => (typeof v === 'number' ? Math.round(v / 1e6) : 0)
 const MAX_HOPS = 4
 
-export async function run({ message, tools = [], callTool, baseUrl, model }) {
+export async function run({ message, tools = [], callTool, baseUrl, model, vm }) {
   const t0 = Date.now()
   const ollamaTools = tools.map((t) => ({
     type: 'function',
@@ -13,7 +14,24 @@ export async function run({ message, tools = [], callTool, baseUrl, model }) {
   const messages = [{ role: 'user', content: message }]
   let reply = '', calls = 0, pTok = 0, cTok = 0, load = 0, pe = 0, gen = 0
   for (let hop = 0; hop < MAX_HOPS; hop++) {
-    const r = await axios.post(`${baseUrl}/api/chat`, { model, messages, tools: ollamaTools, stream: false }, { timeout: 120000 })
+    const post = () => axios.post(`${baseUrl}/api/chat`, { model, messages, tools: ollamaTools, stream: false }, { timeout: 120000 })
+    const r = vm
+      ? await traceCall({
+          vm,
+          kind: 'llm',
+          sentSummary: `→ ${model} · ${messages.length} message(s) · ${ollamaTools.length} tool(s)`,
+          sentDetail: { model, messages, tools: ollamaTools },
+          describeResult: (res) => {
+            const am = res.data.message
+            return {
+              summary: am.tool_calls?.length
+                ? `← tool_calls: ${am.tool_calls.map((c) => c.function.name).join(', ')}`
+                : `← ${res.data.eval_count ?? 0} tok · text reply`,
+              detail: { message: am, prompt_tokens: res.data.prompt_eval_count, completion_tokens: res.data.eval_count },
+            }
+          },
+        }, post)
+      : await post()
     calls++
     const d = r.data
     pTok += d.prompt_eval_count || 0; cTok += d.eval_count || 0
