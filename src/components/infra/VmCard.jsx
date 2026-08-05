@@ -21,7 +21,7 @@ function Reading({ id, label, children }) {
   )
 }
 
-function VmCard({ vm, sample, online, buffersRef, samplingRef, events = [] }) {
+function VmCard({ vm, sample, online, buffersRef, samplingRef, calls = [], highlightedCallId, onHighlightCall }) {
   const meta = VM_META[vm]
 
   return (
@@ -35,7 +35,7 @@ function VmCard({ vm, sample, online, buffersRef, samplingRef, events = [] }) {
       </header>
 
       <VmChart vm={vm} buffersRef={buffersRef} samplingRef={samplingRef} />
-      <CallPins events={events} />
+      <CallPins calls={calls} highlightedCallId={highlightedCallId} onHighlightCall={onHighlightCall} />
 
       <div className="vm-legend">
         <span><i className="swatch" style={{ background: 'var(--accent-2)' }} />CPU %</span>

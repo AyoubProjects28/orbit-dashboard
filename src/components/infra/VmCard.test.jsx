@@ -45,11 +45,11 @@ describe('VmCard', () => {
     expect(screen.getByTestId('vm-dot')).toHaveClass('dot-off')
   })
 
-  it('rend un point par event pour sa VM', () => {
-    const events = [
-      { id: '1', vm: 'llm', kind: 'llm', direction: 'sent', ts: Date.now() / 1000, summary: 'x', detail: {} },
+  it('rend une pastille par appel pour sa VM', () => {
+    const calls = [
+      { callId: '1', vm: 'llm', seq: 1, ts0: Date.now() / 1000, ts1: null, status: 'pending', sent: { summary: 'x', detail: {} }, received: null },
     ]
-    render(<VmCard vm="llm" sample={sample} online {...refs} events={events} />)
+    render(<VmCard vm="llm" sample={sample} online {...refs} calls={calls} />)
     expect(screen.getByTestId('call-pin-sent')).toBeInTheDocument()
   })
 })
