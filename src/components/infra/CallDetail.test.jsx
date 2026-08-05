@@ -32,12 +32,12 @@ describe('CallDetail', () => {
     render(<CallDetail call={doneCall} onClose={() => {}} />)
     expect(screen.getByText(doneCall.sent.summary)).toBeInTheDocument()
     expect(screen.getByText(doneCall.received.summary)).toBeInTheDocument()
-    expect(screen.getByText(/latence 4.5 s/)).toBeInTheDocument()
+    expect(screen.getByText(/latency 4.5 s/)).toBeInTheDocument()
   })
 
   it('affiche "en attente…" pour un appel pending', () => {
     render(<CallDetail call={pendingCall} onClose={() => {}} />)
-    expect(screen.getByText('en attente…')).toBeInTheDocument()
+    expect(screen.getByText('pending…')).toBeInTheDocument()
   })
 
   it('affiche le message d\'erreur pour un appel error', () => {
@@ -55,7 +55,7 @@ describe('CallDetail', () => {
     render(<CallDetail call={truncatedCall} onClose={() => {}} />)
     await userEvent.click(screen.getAllByRole('button', { name: /view payload/i })[0])
     expect(screen.getByText(/"a":1/)).toBeInTheDocument()
-    expect(screen.getByText(/tronqué à 10 Ko/)).toBeInTheDocument()
+    expect(screen.getByText(/truncated at 10 KB/)).toBeInTheDocument()
   })
 
   it('ferme au clic sur ×', async () => {

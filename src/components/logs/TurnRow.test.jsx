@@ -20,7 +20,7 @@ describe('TurnRow', () => {
     }
     render(<TurnRow turn={turn} />)
     await userEvent.click(screen.getByRole('button', { name: /Add 2 and 2/ }))
-    expect(screen.getByText('Appels')).toBeInTheDocument()
+    expect(screen.getByText('Calls')).toBeInTheDocument()
     expect(screen.getByText(/tool_calls: add/)).toBeInTheDocument()
     expect(screen.getByText('4.51 s')).toBeInTheDocument()
   })
@@ -28,6 +28,6 @@ describe('TurnRow', () => {
   it('n\'affiche pas la section Appels quand turn.calls est absent', async () => {
     render(<TurnRow turn={baseTurn} />)
     await userEvent.click(screen.getByRole('button', { name: /Add 2 and 2/ }))
-    expect(screen.queryByText('Appels')).not.toBeInTheDocument()
+    expect(screen.queryByText('Calls')).not.toBeInTheDocument()
   })
 })

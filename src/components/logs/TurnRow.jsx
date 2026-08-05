@@ -58,7 +58,7 @@ function TurnRow({ turn }) {
           </div>
           {turn.calls?.length > 0 && (
             <details className="turn-row-calls">
-              <summary className="turn-row-calls-summary">Appels</summary>
+              <summary className="turn-row-calls-summary">Calls</summary>
               <div className="turn-row-calls-list">
                 {turn.calls.map((call) => (
                   <div key={call.seq} className="turn-row-call">

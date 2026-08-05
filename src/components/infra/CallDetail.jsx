@@ -5,7 +5,7 @@ function formatTime(ts) {
 }
 
 function formatLatency(ts0, ts1) {
-  return `latence ${(ts1 - ts0).toFixed(1)} s`
+  return `latency ${(ts1 - ts0).toFixed(1)} s`
 }
 
 // Un payload {truncated:true, preview} vient de la troncature live à 10 Ko
@@ -22,7 +22,7 @@ function PayloadToggle({ detail }) {
       </button>
       {open && (
         detail.truncated
-          ? <pre className="call-detail-payload-body">{detail.preview}{'\n'}(tronqué à 10 Ko)</pre>
+          ? <pre className="call-detail-payload-body">{detail.preview}{'\n'}(truncated at 10 KB)</pre>
           : <pre className="call-detail-payload-body">{JSON.stringify(detail, null, 2)}</pre>
       )}
     </div>
@@ -47,7 +47,7 @@ function CallDetail({ call, onClose }) {
 
       <div className="call-detail-section">
         <div className="call-detail-section-head">
-          <span className="call-detail-section-label">ENVOI</span>
+          <span className="call-detail-section-label">SENT</span>
           <span className="call-detail-section-time">{formatTime(call.ts0)}</span>
         </div>
         <p className="call-detail-summary">{call.sent.summary}</p>
@@ -56,10 +56,10 @@ function CallDetail({ call, onClose }) {
 
       <div className="call-detail-section">
         <div className="call-detail-section-head">
-          <span className="call-detail-section-label">RÉPONSE</span>
+          <span className="call-detail-section-label">RESPONSE</span>
           {call.ts1 != null && <span className="call-detail-section-time">{formatTime(call.ts1)}</span>}
         </div>
-        {call.status === 'pending' && <p className="call-detail-summary">en attente…</p>}
+        {call.status === 'pending' && <p className="call-detail-summary">pending…</p>}
         {call.status !== 'pending' && (
           <>
             <p className="call-detail-summary">{call.received.summary}</p>
