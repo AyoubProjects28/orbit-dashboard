@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emitCall, onCall, offCall, truncateDetail, traceCall } from './callEvents.js'
+import { emitCall, onCall, offCall, truncateDetail, traceCall, turnContext } from './callEvents.js'
 
 test('onCall reçoit les events émis par emitCall', () => {
   const received = []
@@ -66,4 +66,78 @@ test('traceCall émet sent puis error quand run() échoue, et repropage l\'erreu
   assert.equal(events.length, 2)
   assert.equal(events[1].direction, 'error')
   assert.match(events[1].summary, /boom/)
+})
+
+test('traceCall partage le même callId entre sent et received', async () => {
+  const events = []
+  const listener = (e) => events.push(e)
+  onCall(listener)
+  await traceCall({
+    vm: 'mcp', kind: 'mcp', sentSummary: 'sent', sentDetail: {},
+    describeResult: () => ({ summary: 'ok', detail: {} }),
+  }, async () => 'ok')
+  offCall(listener)
+  assert.equal(events.length, 2)
+  assert.ok(events[0].callId)
+  assert.equal(events[0].callId, events[1].callId)
+})
+
+test('traceCall partage le même callId entre sent et error', async () => {
+  const events = []
+  const listener = (e) => events.push(e)
+  onCall(listener)
+  await assert.rejects(
+    traceCall(
+      { vm: 'llm', kind: 'llm', sentSummary: 'sent', sentDetail: {}, describeResult: () => ({}) },
+      async () => { throw new Error('boom') },
+    ),
+  )
+  offCall(listener)
+  assert.ok(events[0].callId)
+  assert.equal(events[0].callId, events[1].callId)
+})
+
+test('emitCall estampille turnId depuis turnContext', () => {
+  const events = []
+  const listener = (e) => events.push(e)
+  onCall(listener)
+  turnContext.run({ turnId: 't_abc' }, () => {
+    emitCall({ vm: 'llm', kind: 'llm', direction: 'sent', ts: 1, summary: 'x', detail: {} })
+  })
+  offCall(listener)
+  assert.equal(events[0].turnId, 't_abc')
+})
+
+test('emitCall a un turnId null hors de tout contexte', () => {
+  const events = []
+  const listener = (e) => events.push(e)
+  onCall(listener)
+  emitCall({ vm: 'llm', kind: 'llm', direction: 'sent', ts: 1, summary: 'x', detail: {} })
+  offCall(listener)
+  assert.equal(events[0].turnId, null)
+})
+
+test('turnContext isole deux tours entrelacés', async () => {
+  const events = []
+  const listener = (e) => events.push(e)
+  onCall(listener)
+  await Promise.all([
+    turnContext.run({ turnId: 'A' }, async () => {
+      emitCall({ callId: 'a1', vm: 'llm', kind: 'llm', direction: 'sent', ts: 1, summary: 'a-sent', detail: {} })
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      emitCall({ callId: 'a1', vm: 'llm', kind: 'llm', direction: 'received', ts: 2, summary: 'a-received', detail: {} })
+    }),
+    turnContext.run({ turnId: 'B' }, async () => {
+      emitCall({ callId: 'b1', vm: 'mcp', kind: 'mcp', direction: 'sent', ts: 1, summary: 'b-sent', detail: {} })
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      emitCall({ callId: 'b1', vm: 'mcp', kind: 'mcp', direction: 'received', ts: 2, summary: 'b-received', detail: {} })
+    }),
+  ])
+  offCall(listener)
+  const aEvents = events.filter((e) => e.turnId === 'A')
+  const bEvents = events.filter((e) => e.turnId === 'B')
+  assert.equal(aEvents.length, 2)
+  assert.equal(bEvents.length, 2)
+  assert.ok(aEvents.every((e) => e.callId === 'a1'))
+  assert.ok(bEvents.every((e) => e.callId === 'b1'))
 })
