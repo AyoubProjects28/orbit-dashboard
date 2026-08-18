@@ -26,8 +26,8 @@ variables:
 
 # ------------------------------------------------------------------
 # TEST — sur toutes les branches et toutes les MR.
-# meta-tool.js est une fonction pure sans I/O : elle est testable en CI
-# sans MCP ni LLM. C'est le stage que la pipeline minerva n'a pas.
+# Modules purs testables en CI sans MCP ni LLM. C'est le stage que la
+# pipeline minerva n'a pas.
 # ------------------------------------------------------------------
 test:
   stage: test

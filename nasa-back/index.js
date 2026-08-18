@@ -73,9 +73,7 @@ app.post('/api/chat', async (req, res) => {
   onCall(collector)
 
   try {
-    // no-mcp: pass zero tools instead of the cached MCP list. Nothing to
-    // route through meta-tool.js here — it has no caller on this path
-    // either way (see SPEC §13); this is purely what reaches the provider.
+    // no-mcp: pass zero tools instead of the cached MCP list.
     const tools = condition === 'no-mcp' ? [] : mcpClient.getTools()
     const { reply, turnMetrics, toolsCalled = [] } = await turnContext.run({ turnId }, () => providers.dispatch(provider, {
       message,
@@ -92,8 +90,6 @@ app.post('/api/chat', async (req, res) => {
       costUsd: turnMetrics.cost_usd,
     })
 
-    // `route` reste "llm-full" en dur jusqu'à l'étape 4 (rebranchement de
-    // meta-tool.js dans le dispatch) — voir spec §5.1.
     const pk = promptKey(message)
     sessionLog.appendTurn({
       id: turnId,

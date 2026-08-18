@@ -1,0 +1,42 @@
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # SPA React : toute route inconnue retombe sur index.html
+    # (équivalent du try_files de la conf actuelle sur web-test01).
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # --- API ---------------------------------------------------------------
+    # ${API_UPSTREAM} = http://orbit-api:3001 : le nom du conteneur voisin,
+    # résolu par le DNS interne du réseau Docker "edge". Aucun port de
+    # l'hôte n'est ouvert vers le backend.
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Le LLM tourne sur CPU : une réponse peut prendre plusieurs minutes.
+        # On conserve les 300 s de la conf actuelle.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    # --- Agents de collecte (périmètre JB) ---------------------------------
+    # Écart E2 du doc de migration : ces routes court-circuitent le backend.
+    # Elles sont conservées telles quelles pour ne rien casser, mais elles
+    # sont à arbitrer avec Antoine/JB.
+    # ATTENTION : après la fusion 2 VMs, mcp-test01 n'existe plus. Les métriques
+    # du MCP viendront des métriques PAR CONTENEUR (cAdvisor / docker stats),
+    # plus d'un agent sur une VM dédiée. Voir ARCHITECTURE_Orbit_2VM_Docker.md §5.
+    location /agent/llm/ {
+        proxy_pass ${AGENT_LLM_URL};
+        proxy_read_timeout 60s;
+    }
+}

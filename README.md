@@ -39,28 +39,15 @@ flowchart LR
     subgraph web ["web-test01 (this repo)"]
         FE["Front (React)"]
         BE["index.js"]
-        MT["meta-tool.js\n(pure, no I/O)"]
         CC["chatClient.js"]
         MC["mcpClient.js"]
         FE --> BE
-        BE -->|"selectTools(message, tools)"| MT
-        MT -->|"decision"| BE
         BE --> CC
         BE --> MC
     end
     CC <-->|"chat completions"| LLM["llm-test01 — LLM (Ollama)"]
     MC <-->|"tools/list + tools/call"| MCP["mcp-test01 — orbit-mcp-server repo, :8000"]
 ```
-
-`meta-tool.js` is a pure function with no I/O — it never calls the LLM or the MCP
-server itself. Given the raw message and the live tool list, it only decides **which**
-tool(s) might be relevant (never their arguments). `index.js` is the only file that
-actually executes anything: for a fully deterministic decision (nothing to guess from
-free text) it calls `mcpClient.js` directly with zero LLM calls; otherwise it restricts
-the LLM tool-calling loop to just the candidate tool(s) `meta-tool.js` named, so the LLM
-only fills in the argument instead of choosing from all 7 tools. If `meta-tool.js` can't
-classify the message, control passes to the LLM with the full tool list, exactly as if
-`meta-tool.js` didn't exist. See [Request flow](#request-flow-meta-tooljs-and-the-three-paths) below.
 
 **Why the LLM and the MCP server never talk directly:**
 
@@ -136,12 +123,8 @@ A **Node.js + Express** server that orchestrates the chat flow.
 
 - [`index.js`](nasa-back/index.js) — the server and orchestrator. Exposes:
   - `GET /api/metrics` — returns the current metrics snapshot.
-  - `POST /api/chat` — first calls `meta-tool.selectTools()` (in-process, no network)
-    to decide which tools, if any, are candidates for the message. Then either
-    (a) executes a deterministic call itself with zero LLM calls, (b) runs the LLM
-    tool-calling loop restricted to the candidate tool(s), or (c) runs the same loop
-    with the full cached tool list if nothing was classified. See
-    [Request flow](#request-flow-meta-tooljs-and-the-three-paths) below.
+  - `POST /api/chat` — runs the LLM tool-calling loop with the full cached tool list
+    (or zero tools under the `no-mcp` condition).
 
     The tool-calling loop itself: send the conversation + tool list to the LLM: if
     it replies with plain text, that's the final answer; if it asks to call tools,
@@ -152,13 +135,6 @@ A **Node.js + Express** server that orchestrates the chat flow.
     the only thing that routes tool calls between them. It also computes a
     latency breakdown: total wall-clock time minus pure LLM time gives the
     "overhead" (tool execution + orchestration) shown in the Latency panel.
-- [`meta-tool.js`](nasa-back/meta-tool.js) — pure, synchronous decision module, no
-  MCP or LLM calls, no `await`. `selectTools(message, tools)` classifies the message
-  against known intents (count/volume/date/list/read/search) and returns which
-  tool(s) are relevant, or `{ resolved: false }` if none match or the matched tool no
-  longer exists in the live tool list (self-healing against tool renames on the MCP
-  side). `formatDeterministicReply(flags, docs)` turns already-fetched data into the
-  reply text for the deterministic tier.
 - [`chatClient.js`](nasa-back/chatClient.js) — the only file that talks to the LLM.
   Sends the conversation and tool list to Ollama's `/api/chat`, reads back token
   counts, and computes cost. Configurable via `ORBIT_LLM_URL` / `ORBIT_LLM_MODEL`.
@@ -175,120 +151,6 @@ A **Node.js + Express** server that orchestrates the chat flow.
 
   The file name and the `server` npm script predate this split — most of what it
   returns is now real, only hardware remains mocked.
-
-## Request flow: meta-tool.js and the three paths
-
-Every `POST /api/chat` starts the same way — `index.js` calls
-`meta-tool.selectTools(message, tools)` — then follows one of three paths. A **hop** =
-one round trip to the LLM inside the tool-calling loop.
-
-### Deterministic answer, zero LLM calls (count / volume / date / list)
-
-```mermaid
-sequenceDiagram
-    participant FE as Front (ChatPanel)
-    participant BE as index.js
-    participant MT as meta-tool.js
-    participant MC as mcpClient.js
-    participant MCP as mcp-test01 (orbit-mcp-server)
-
-    FE->>BE: POST /api/chat { message: "how many files are there?" }
-    BE->>MT: selectTools(message, tools)
-    MT-->>BE: { mode: "deterministic", tool: "list_documents", args: {folder:"/"}, flags }
-    Note over BE: Argument is a constant (folder: "/") — nothing to guess, no LLM needed.
-    BE->>MC: callToolJson("list_documents", { folder: "/" })
-    MC->>MCP: tools/call list_documents
-    MCP-->>MC: { documents: [...] }
-    MC-->>BE: documents
-    BE->>BE: formatDeterministicReply(flags, documents)
-    BE-->>FE: { reply, turnMetrics }
-```
-
-### Free-text argument, LLM restricted to the candidate tool(s) (read / search)
-
-Example: *"search for the document xxx, and read it"* — `meta-tool.js` picks
-`[search_documents, read_document]` up front; `index.js` gives the LLM only those two
-tools instead of all 7, and lets it drive as many hops as it needs.
-
-```mermaid
-sequenceDiagram
-    participant FE as Front (ChatPanel)
-    participant BE as index.js
-    participant MT as meta-tool.js
-    participant CC as chatClient.js
-    participant MC as mcpClient.js
-    participant LLM as Ollama (LLM)
-    participant MCP as mcp-test01 (orbit-mcp-server)
-
-    FE->>BE: POST /api/chat { message: "search for xxx, and read it" }
-    BE->>MT: selectTools(message, tools)
-    MT-->>BE: { mode: "llm-args", tools: ["search_documents","read_document"] }
-    Note over BE: Argument (query/filename) comes from free text — let the LLM fill it in.
-
-    Note over BE,MCP: Hop 1 — LLM picks the argument for search_documents
-    BE->>CC: chat(message, [search_documents, read_document])
-    CC->>LLM: /api/chat (prompt + 2 tools only)
-    LLM-->>CC: tool_calls: search_documents({query:"xxx"})
-    CC-->>BE: tool_calls
-    BE->>MC: callTool("search_documents", {query:"xxx"})
-    MC->>MCP: tools/call search_documents
-    MCP-->>MC: matching filenames
-    MC-->>BE: matching filenames
-
-    Note over BE,MCP: Hop 2 — LLM now has the real filename, calls read_document
-    BE->>CC: chat(history + search result, [search_documents, read_document])
-    CC->>LLM: /api/chat
-    LLM-->>CC: tool_calls: read_document({file_path:"xxx.txt"})
-    CC-->>BE: tool_calls
-    BE->>MC: callTool("read_document", {file_path:"xxx.txt"})
-    MC->>MCP: tools/call read_document
-    MCP-->>MC: file content
-    MC-->>BE: file content
-
-    Note over BE,MCP: Hop 3 — nothing left to call, LLM drafts the final answer
-    BE->>CC: chat(history + file content, [search_documents, read_document])
-    CC->>LLM: /api/chat
-    LLM-->>CC: plain text reply (no tool_calls)
-    CC-->>BE: reply
-    BE-->>FE: { reply, turnMetrics }
-```
-
-### No intent matched at all — full LLM tool-calling fallback
-
-```mermaid
-sequenceDiagram
-    participant FE as Front (ChatPanel)
-    participant BE as index.js
-    participant MT as meta-tool.js
-    participant CC as chatClient.js
-    participant MC as mcpClient.js
-    participant LLM as Ollama (LLM)
-    participant MCP as mcp-test01 (orbit-mcp-server)
-
-    FE->>BE: POST /api/chat { message: "compute 2+3" }
-    BE->>MT: selectTools(message, tools)
-    MT-->>BE: { resolved: false }
-    Note over BE: Not a document intent — fall back to the LLM with the FULL tool list.
-    BE->>CC: chat(message, allTools)
-    CC->>LLM: /api/chat (prompt + all 7 tools)
-    LLM-->>CC: tool_calls: add{a:2, b:3}
-    CC-->>BE: tool_calls
-    BE->>MC: callTool("add", {a:2, b:3})
-    MC->>MCP: tools/call add
-    MCP-->>MC: 5
-    MC-->>BE: 5
-    BE->>CC: chat(history + result=5, allTools)
-    CC->>LLM: /api/chat (tool result)
-    LLM-->>CC: "2 + 3 = 5"
-    CC-->>BE: reply
-    BE-->>FE: { reply, turnMetrics }
-```
-
-The second and third paths run through the exact same `runToolCallingLoop()` in
-`index.js` — the only difference is which tools are passed to `chatClient.chat()` (a
-couple, or all 7). The LLM always emits structured `tool_calls`, never free-form text
-to parse, and it never reaches `mcp-test01` directly — everything goes through
-`mcpClient.js`.
 
 ## Running it
 
