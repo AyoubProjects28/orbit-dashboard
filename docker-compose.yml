@@ -1,0 +1,122 @@
+# ============================================================
+#  web-test01 — la pile applicative Orbit (cible 2 VMs)
+#
+#  Déploiement :  TAG=<sha> docker compose --env-file /opt/orbit/.env up -d
+#  Rollback    :  TAG=<sha-précédent> docker compose --env-file /opt/orbit/.env up -d
+#
+#  L'invariant d'architecture « le LLM et le MCP ne se parlent jamais,
+#  le backend est toujours l'intermédiaire » est ici APPLIQUÉ PAR LE RÉSEAU,
+#  et plus seulement par le code : voir les réseaux `edge` et `mcpnet`.
+# ============================================================
+
+services:
+
+  # --- nginx : seul conteneur exposé sur le réseau de l'entreprise ---------
+  orbit-web:
+    image: ${REGISTRY}/orbit-web:${TAG:-latest}
+    container_name: orbit-web
+    restart: unless-stopped
+    ports:
+      # Le port de l'hôte est réglable : 8080 pour cohabiter avec l'ancien nginx
+      # pendant la migration, 80 une fois la bascule faite. Défaut = 80.
+      - "${WEB_PORT:-80}:80"
+    environment:
+      API_UPSTREAM:   "http://orbit-api:3001"
+      AGENT_LLM_URL:  "${AGENT_LLM_URL:-http://172.18.53.7:9100/}"
+    networks:
+      - edge          # PAS sur mcpnet : nginx ne peut pas atteindre le MCP
+    depends_on:
+      orbit-api:
+        condition: service_healthy
+
+  # --- backend Express : le seul orchestrateur ----------------------------
+  orbit-api:
+    image: ${REGISTRY}/orbit-api:${TAG:-latest}
+    container_name: orbit-api
+    restart: unless-stopped
+    # Aucun `ports:` — volontaire. Le backend n'est joignable que depuis
+    # le réseau Docker `edge` (par nginx). Ferme l'écart E1 : aujourd'hui
+    # il écoute sur *:3001 et toute machine du /24 peut l'appeler.
+    environment:
+      PORT:                "3001"
+      NODE_ENV:            "production"
+      # Le MCP est appelé par son nom de conteneur, pas par une IP de VM.
+      ORBIT_MCP_URL:       "http://orbit-mcp:8000/mcp"
+      ORBIT_MCP_TOKEN:     "${ORBIT_MCP_TOKEN:?ORBIT_MCP_TOKEN manquant dans le .env}"
+      # Le LLM reste sur sa VM : appel réseau sortant classique.
+      ORBIT_LLM_URL:       "${ORBIT_LLM_URL:-http://172.18.53.7:11434}"
+      ORBIT_LLM_MODEL:     "${ORBIT_LLM_MODEL:-qwen2.5:3b-instruct}"
+      ANTHROPIC_API_KEY:   "${ANTHROPIC_API_KEY:-}"
+      ANTHROPIC_PRICE_IN:  "${ANTHROPIC_PRICE_IN:-0.000002}"
+      ANTHROPIC_PRICE_OUT: "${ANTHROPIC_PRICE_OUT:-0.000010}"
+      # Agents psutil pour l'onglet Infra du dashboard (un par VM).
+      ORBIT_AGENT_LLM_URL: "${ORBIT_AGENT_LLM_URL:-http://172.18.53.7:9100/metrics}"
+      ORBIT_AGENT_WEB_URL: "${ORBIT_AGENT_WEB_URL:-http://172.18.53.11:9100/metrics}"
+    volumes:
+      # SANS CETTE LIGNE, chaque déploiement efface turns.jsonl et families.jsonl.
+      - orbit-logs:/app/logs
+    networks:
+      - edge          # joignable par nginx
+      - mcpnet        # peut joindre le MCP
+    depends_on:
+      # Sans ça, le backend démarre avant que le MCP écoute et log
+      # « Failed to start backend: fetch failed » avant de réessayer.
+      orbit-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/metrics').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # --- serveur MCP : rapatrié de mcp-test01 -------------------------------
+  orbit-mcp:
+    image: ${REGISTRY}/orbit-mcp:${MCP_TAG:-latest}
+    container_name: orbit-mcp
+    restart: unless-stopped
+    # Aucun `ports:` et uniquement sur `mcpnet` : llm-test01 — et même nginx —
+    # sont PHYSIQUEMENT incapables de l'atteindre. Seul orbit-api le peut.
+    # Vérifiable en démo : `curl http://172.18.53.11:8000/mcp` depuis
+    # llm-test01 → connection refused.
+    environment:
+      ORBIT_TRANSPORT:          "streamable-http"
+      ORBIT_MCP_HOST:           "0.0.0.0"
+      ORBIT_MCP_PORT:           "8000"
+      ORBIT_MCP_TOKEN:          "${ORBIT_MCP_TOKEN:?}"
+      # TransportSecuritySettings valide l'en-tête Host : en Docker, l'hôte
+      # appelé devient le nom du conteneur.
+      ORBIT_MCP_ALLOWED_HOSTS:  "orbit-mcp,orbit-mcp:8000,localhost,127.0.0.1"
+      ORBIT_PROOF_LOG:          "/var/lib/orbit-planner/proof.log"
+    volumes:
+      - orbit-proof:/var/lib/orbit-planner
+      # ⚠️ PRÉREQUIS BLOQUANT : SHARE_PATH = "/mnt/share" est EN DUR dans
+      # server.py. Le partage SMB / la synchro SharePoint doit être monté sur
+      # web-test01 AVANT de démarrer ce conteneur — il vit aujourd'hui sur
+      # mcp-test01. Voir ARCHITECTURE_Orbit_2VM_Docker.md §6.
+      - /mnt/share:/mnt/share:ro
+    networks:
+      - mcpnet
+
+  # --- agent de métriques de la VM (source : JB, cf. deploy/metrics-agent/README.md) --
+  # web-test01 héberge maintenant 3 services et n'était mesurée par personne :
+  # le dashboard n'interrogeait que llm-test01 et mcp-test01.
+  orbit-metric:
+    image: ${REGISTRY}/orbit-metric:${TAG:-latest}
+    container_name: orbit-metric
+    restart: unless-stopped
+    # Réseau de l'hôte, et c'est indispensable : /proc/net/dev est isolé par
+    # conteneur, donc sans ça l'agent mesurerait le trafic de sa propre interface
+    # virtuelle au lieu de celui de la VM. Bonus : le conteneur hérite du nom
+    # d'hôte de la machine, donc le champ "host" du JSON dit bien web-test01.
+    # Conséquence : ni `ports:` ni `networks:` ici, il écoute directement sur :9100.
+    network_mode: host
+networks:
+  edge:
+    driver: bridge
+  mcpnet:
+    driver: bridge
+
+volumes:
+  orbit-logs:     # turns.jsonl + families.jsonl
+  orbit-proof:    # proof.log (attest_execution)

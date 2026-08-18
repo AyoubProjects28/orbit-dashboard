@@ -3,7 +3,7 @@ import CallPins from './CallPins'
 
 export const VM_META = {
   llm: { name: 'LLM-TEST01', role: 'Ollama', ip: '172.18.53.7', accent: 'var(--accent-2)' },
-  mcp: { name: 'MCP-TEST01', role: 'FastMCP', ip: '172.18.53.9', accent: 'var(--accent)' },
+  web: { name: 'WEB-TEST01', role: 'Front · Backend · MCP', ip: '172.18.53.11', accent: 'var(--accent)' },
 }
 
 function formatBps(bps) {

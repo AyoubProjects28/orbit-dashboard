@@ -1,0 +1,35 @@
+# ============================================================
+#  llm-test01 — Ollama seul, sur ses 8 cœurs dédiés
+#
+#  Pas de repo dédié : il n'y a AUCUN code maison ici, juste l'image
+#  officielle. Ce fichier EST la configuration du service — c'est lui
+#  qu'on versionne, et un commit dessus = un redéploiement.
+#
+#  Déploiement : docker compose up -d && docker compose exec ollama ollama pull <modèle>
+# ============================================================
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      # ⚠️ Ouvre 11434 à tout le /24. À restreindre à web-test01 par iptables/ufw
+      # (aujourd'hui les 3 chaînes sont en ACCEPT sans aucune règle).
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: "0.0.0.0"
+      OMP_NUM_THREADS: "8"      # contrainte 8 cœurs de la VM
+      OLLAMA_NUM_PARALLEL: "1"  # 1 requête à la fois : le CPU est le goulot
+      OLLAMA_KEEP_ALIVE: "24h"  # garde le modèle en RAM, évite un rechargement
+                                # de plusieurs secondes qui pollue la latence mesurée
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+    volumes:
+      # Sans ce volume, chaque redéploiement re-télécharge plusieurs Go de modèle.
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:

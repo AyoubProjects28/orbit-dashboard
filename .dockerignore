@@ -1,0 +1,12 @@
+# Contexte de build : tout ce qui n'est pas listé ici est envoyé au démon Docker.
+# Moins on envoie, plus le build est rapide — et rien d'ignoré ne peut finir dans l'image.
+.git
+.gitignore
+**/node_modules
+nasa-back/logs
+docs
+*.md
+.superpowers
+.claude
+.vscode
+.idea

@@ -8,7 +8,7 @@ const noJitter = () => 0.5
 describe('VM_PROFILES', () => {
   it('décrit les deux VM avec leur nombre de cœurs', () => {
     expect(VM_PROFILES.llm.cores).toBe(4)
-    expect(VM_PROFILES.mcp.cores).toBe(2)
+    expect(VM_PROFILES.web.cores).toBe(4)
   })
 })
 
@@ -30,9 +30,9 @@ describe('nextMockSample', () => {
   })
 
   it('produit un pourcentage par cœur, au bon nombre', () => {
-    const state = createMockState('mcp')
-    const sample = nextMockSample('mcp', state, { inflight: false, t: 1000, rand: noJitter })
-    expect(sample.cores).toHaveLength(2)
+    const state = createMockState('web')
+    const sample = nextMockSample('web', state, { inflight: false, t: 1000, rand: noJitter })
+    expect(sample.cores).toHaveLength(4)
     sample.cores.forEach((core) => {
       expect(core).toBeGreaterThanOrEqual(1)
       expect(core).toBeLessThanOrEqual(99)
@@ -53,7 +53,7 @@ describe('nextMockSample', () => {
   })
 
   it('reporte le timestamp fourni', () => {
-    const state = createMockState('mcp')
-    expect(nextMockSample('mcp', state, { inflight: false, t: 4242, rand: noJitter }).t).toBe(4242)
+    const state = createMockState('web')
+    expect(nextMockSample('web', state, { inflight: false, t: 4242, rand: noJitter }).t).toBe(4242)
   })
 })

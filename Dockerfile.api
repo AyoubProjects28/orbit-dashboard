@@ -1,0 +1,32 @@
+# ============================================================
+#  orbit-api — le backend Express (nasa-back/)
+#  Ne sert AUCUN fichier statique : uniquement /api/*.
+#  C'est orbit-web (nginx) qui sert le front et proxifie vers ici.
+# ============================================================
+FROM node:20-slim
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+# --- Couche dépendances, isolée du code -------------------------------------
+# Copiée AVANT le code : modifier index.js ne réinvalide pas cette couche,
+# donc `npm ci` n'est rejoué que si les dépendances changent réellement.
+COPY nasa-back/package.json nasa-back/package-lock.json ./
+RUN npm ci --omit=dev
+
+# --- Code applicatif --------------------------------------------------------
+COPY nasa-back/ ./
+
+# turns.jsonl et families.jsonl sont écrits ici (sessionLog.js / familyLog.js
+# font path.join(__dirname, 'logs') → /app/logs).
+# Ce chemin DOIT être monté sur un volume nommé, sinon chaque déploiement
+# efface l'historique des sessions et les familles curées à la main.
+RUN mkdir -p /app/logs && chown -R node:node /app
+USER node
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/api/metrics').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "index.js"]

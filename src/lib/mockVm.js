@@ -7,7 +7,9 @@ const GIB = 1073741824
 
 export const VM_PROFILES = {
   llm: { cores: 4, totalBytes: 32 * GIB, idleCpu: 9, busyCpu: 78, memFloor: 58, memCeil: 86 },
-  mcp: { cores: 2, totalBytes: 8 * GIB, idleCpu: 4, busyCpu: 22, memFloor: 22, memCeil: 30 },
+  // nginx + Node (orbit-api) + Python (orbit-mcp) sur 4 cœurs / 8 Gio : plus
+  // chargée que l'ancien MCP seul (2 cœurs / 8 Gio), moins que le LLM.
+  web: { cores: 4, totalBytes: 8 * GIB, idleCpu: 12, busyCpu: 58, memFloor: 35, memCeil: 60 },
 }
 
 function clamp(value, min, max) {

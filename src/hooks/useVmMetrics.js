@@ -13,7 +13,9 @@ import { fetchVmMetrics } from '../api/vmMetrics'
 import { avgWindow, summarizeVm } from '../lib/sampling'
 import { VM_PROFILES, createMockState, nextMockSample } from '../lib/mockVm'
 
-export const VMS = ['llm', 'mcp']
+export const VMS = ['llm', 'web']
+// Quel service tourne sur quelle VM. Le MCP a migré de mcp-test01 vers web-test01.
+export const VM_OF_SERVICE = { llm: 'llm', mcp: 'web' }
 export const WINDOW_S = 60
 export const BASELINE_S = 15
 const POLL_MS = 1000
@@ -44,12 +46,12 @@ function isLive(agent) {
 }
 
 export function useVmMetrics() {
-  const buffersRef = useRef({ llm: emptyBuffer(), mcp: emptyBuffer() })
-  const mockStatesRef = useRef({ llm: createMockState('llm'), mcp: createMockState('mcp') })
+  const buffersRef = useRef({ llm: emptyBuffer(), web: emptyBuffer() })
+  const mockStatesRef = useRef({ llm: createMockState('llm'), web: createMockState('web') })
   const samplingRef = useRef(null)
 
-  const [latest, setLatest] = useState({ llm: null, mcp: null })
-  const [online, setOnline] = useState({ llm: false, mcp: false })
+  const [latest, setLatest] = useState({ llm: null, web: null })
+  const [online, setOnline] = useState({ llm: false, web: false })
   const [lastSampling, setLastSampling] = useState(null)
 
   const push = useCallback((vm, sample) => {

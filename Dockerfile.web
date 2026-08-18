@@ -1,0 +1,41 @@
+# ============================================================
+#  orbit-web — nginx : sert le front buildé + route les URLs
+#  Remplace le nginx installé à la main sur web-test01.
+#  La conf vit désormais dans ce repo (docker/default.conf.template).
+# ============================================================
+
+# ---------- Étape 1 : build du front React (Vite) ----------
+FROM node:20-slim AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY index.html vite.config.js ./
+COPY src ./src
+COPY public ./public
+# nasa-front/ n'est pas seulement la sortie du build : il contient aussi
+# monitor.html (le dashboard d'Antoine), favicon.svg et icons.svg, que Vite
+# ne connaît pas — d'où `emptyOutDir: false` dans vite.config.js.
+# On les copie AVANT le build pour qu'ils se retrouvent dans l'image finale.
+COPY nasa-front ./nasa-front
+
+RUN npm run build          # écrit dans /app/nasa-front
+
+# ---------- Étape 2 : l'image finale, sans Node ni npm ----------
+FROM nginx:1.27-alpine
+
+COPY --from=build /app/nasa-front /usr/share/nginx/html
+# Un checkout Windows/WSL peut produire des fichiers en 700. nginx tourne en
+# utilisateur `nginx`, pas en root : sans droit de lecture il renvoie 403 sur
+# TOUTE la page, alors que les fichiers sont bien là. Vérifié en test réel.
+RUN chmod -R a+rX /usr/share/nginx/html
+# L'image nginx officielle applique envsubst sur /etc/nginx/templates/*.template
+# au démarrage : les upstreams restent configurables au déploiement,
+# aucune IP n'est figée dans l'image.
+COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1

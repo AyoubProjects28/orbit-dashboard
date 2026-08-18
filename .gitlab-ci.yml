@@ -1,0 +1,104 @@
+# ============================================================
+#  orbit-dashboard — pipeline GitLab
+#
+#  Hypothèse d'installation (la plus simple, aucune infra à ajouter) :
+#  UN runner GitLab en exécuteur "shell", enregistré SUR web-test01,
+#  avec le tag `web-test01`. Il utilise le Docker de la VM directement,
+#  donc pas besoin de docker:dind ni de runner privilégié.
+#
+#  Alternative si l'IT préfère isoler les builds : exécuteur "docker" +
+#  `image: docker:27` + `services: [docker:27-dind]` (comme minerva-mcp),
+#  au prix d'un runner en mode privileged.
+#
+#  Rollback : relancer le job `deploy` d'un pipeline plus ancien, ou sur la VM
+#  TAG=<sha> docker compose -f /opt/orbit/docker-compose.yml --env-file /opt/orbit/.env up -d
+# ============================================================
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  IMAGE_API: "$CI_REGISTRY_IMAGE/orbit-api"
+  IMAGE_WEB: "$CI_REGISTRY_IMAGE/orbit-web"
+  DEPLOY_DIR: "/opt/orbit"
+
+# ------------------------------------------------------------------
+# TEST — sur toutes les branches et toutes les MR.
+# meta-tool.js est une fonction pure sans I/O : elle est testable en CI
+# sans MCP ni LLM. C'est le stage que la pipeline minerva n'a pas.
+# ------------------------------------------------------------------
+test:
+  stage: test
+  tags: [web-test01]
+  script:
+    - npm ci
+    - npm run lint
+    - npm test                       # vitest : front + modules purs
+    - cd nasa-back && npm ci && npm test   # node --test : backend
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+# ------------------------------------------------------------------
+# BUILD — deux images depuis un seul repo.
+# Chaque image porte DEUX tags : le SHA du commit (traçabilité + rollback)
+# et `latest` (confort). Ne jamais se contenter de `latest` seul.
+# ------------------------------------------------------------------
+.build_template: &build_template
+  stage: build
+  tags: [web-test01]
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+build:api:
+  <<: *build_template
+  script:
+    - docker build -f Dockerfile.api -t $IMAGE_API:$CI_COMMIT_SHORT_SHA -t $IMAGE_API:latest .
+    - docker push $IMAGE_API:$CI_COMMIT_SHORT_SHA
+    - docker push $IMAGE_API:latest
+
+build:web:
+  <<: *build_template
+  script:
+    - docker build -f Dockerfile.web -t $IMAGE_WEB:$CI_COMMIT_SHORT_SHA -t $IMAGE_WEB:latest .
+    - docker push $IMAGE_WEB:$CI_COMMIT_SHORT_SHA
+    - docker push $IMAGE_WEB:latest
+
+# ------------------------------------------------------------------
+# DEPLOY — sur web-test01.
+# Le compose du repo devient la référence sur la VM : la pipeline du repo
+# MCP s'en sert aussi pour ne redéployer QUE son service.
+# ------------------------------------------------------------------
+deploy:
+  stage: deploy
+  tags: [web-test01]
+  environment:
+    name: web-test01
+    url: http://172.18.53.11
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - sudo install -m 644 docker-compose.yml $DEPLOY_DIR/docker-compose.yml
+    - export REGISTRY="$CI_REGISTRY_IMAGE"
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+    - docker compose -f $DEPLOY_DIR/docker-compose.yml --env-file $DEPLOY_DIR/.env pull orbit-web orbit-api
+    - docker compose -f $DEPLOY_DIR/docker-compose.yml --env-file $DEPLOY_DIR/.env up -d orbit-web orbit-api
+    # Vérification post-déploiement : sans ça, une image qui crashe au démarrage
+    # laisse la pipeline VERTE alors que le dashboard est mort (faiblesse P3
+    # de la pipeline minerva).
+    - |
+      for i in $(seq 1 20); do
+        if curl -fsS http://127.0.0.1/api/metrics > /dev/null; then
+          echo "OK — le dashboard répond"; exit 0
+        fi
+        echo "tentative $i/20…"; sleep 3
+      done
+      echo "ÉCHEC : /api/metrics ne répond pas après 60 s"
+      docker compose -f $DEPLOY_DIR/docker-compose.yml logs --tail=50 orbit-api orbit-web
+      exit 1
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
