@@ -172,6 +172,53 @@ export function summarize(runs) {
   }
 }
 
+// --- Grouping (Group by: Run / Session / Question) --------------------------
+//
+// scores.jsonl has no family concept — that's Orbit's own data (see
+// ARCHITECTURE §8, never mixed with this one). The two grouping axes it does
+// have are session_id and question_id. "Run" (ungrouped, one bubble per run)
+// is the existing BubbleChart behavior and isn't a case here.
+
+const GROUP_KEY_OF = {
+  session: (r) => r.sessionId,
+  question: (r) => r.questionId,
+}
+
+// Group by one level, then split by condition — same shape as
+// src/lib/families.js's groupRuns, independently implemented rather than
+// shared: the two data sources stay fully decoupled (decision 8), and a run
+// here is scores.jsonl-shaped, not turns.jsonl-shaped.
+export function groupRuns(level, runs) {
+  const keyFn = GROUP_KEY_OF[level]
+  if (!keyFn) throw new Error(`groupRuns: unknown level "${level}"`)
+
+  const groups = new Map()
+  for (const run of runs) {
+    const key = keyFn(run)
+    if (key == null) continue
+    if (!groups.has(key)) {
+      groups.set(key, { key, byCondition: Object.fromEntries(CONDITIONS.map((c) => [c, []])) })
+    }
+    const bucket = groups.get(key).byCondition[run.condition]
+    if (bucket) bucket.push(run)
+  }
+  return [...groups.values()]
+}
+
+// scores.jsonl runs always carry a real accuracy/noise (no grading
+// workflow, unlike Families) — so unlike families.js's aggregate(), there's
+// no ungraded case to exclude here.
+export function aggregateGroup(runs) {
+  if (runs.length === 0) return { n: 0, cost: 0, accuracy: 0, noise: 0, skipped: 0 }
+  return {
+    n: runs.length,
+    cost: median(runs.map((r) => r.cost)),
+    accuracy: runs.reduce((sum, r) => sum + r.accuracy, 0) / runs.length,
+    noise: runs.reduce((sum, r) => sum + r.noise, 0) / runs.length,
+    skipped: runs.filter(mcpSkipped).length,
+  }
+}
+
 // --- Local persistence -------------------------------------------------------
 //
 // Product choice: the last dropped file replaces the previous one and

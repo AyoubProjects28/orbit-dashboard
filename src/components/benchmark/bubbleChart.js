@@ -57,6 +57,26 @@ export function rankX(index, total, g = GEOM) {
 // better" stays true on both sub-tabs: switching between two visually
 // identical charts whose axis points the opposite way is the surest way to
 // get a result read backwards in a demo.
+// One X slot per group (session or question, "Group by" — see BubbleChart.jsx),
+// evenly spaced. Groups are categorical, not ranked by time, so this is
+// simpler than rankX above; only used when groupBy !== 'run'.
+export function groupStep(total, g = GEOM) {
+  return plotWidth(g) / Math.max(1, total)
+}
+
+export function groupX(index, total, g = GEOM) {
+  return g.padLeft + groupStep(total, g) * (index + 0.5)
+}
+
+// Spreads up to 3 condition-bubbles symmetrically around their group's
+// center so they don't overlap. `count`/`index` are scoped to whichever
+// conditions actually have runs in that group, not the fixed 3.
+const MAX_CONDITION_OFFSET = 26
+export function conditionOffset(index, count, step) {
+  if (count <= 1) return 0
+  return (index - (count - 1) / 2) * Math.min(MAX_CONDITION_OFFSET, step / 4)
+}
+
 export function valueY(value, invert = false, g = GEOM) {
   const safe = Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0))
   const h = plotHeight(g)
@@ -105,4 +125,9 @@ export function formatDay(timestamp) {
   if (typeof timestamp !== 'string' || timestamp.length < 10) return '—'
   const [, month, day] = timestamp.slice(0, 10).split('-')
   return `${day}/${month}`
+}
+
+export function truncateLabel(label, maxLength = 22) {
+  const text = typeof label === 'string' ? label : String(label ?? '')
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text
 }

@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
+  CONDITIONS,
   STORAGE_KEY,
+  aggregateGroup,
   clearScores,
   conditionColor,
   conditionLabel,
+  groupRuns,
   loadScores,
   mcpSkipped,
   median,
@@ -169,6 +172,67 @@ describe('mcpSkipped', () => {
 
   it('flags a forced run that still did not call the MCP — an anomaly worth seeing', () => {
     expect(mcpSkipped(normalizeRun({ condition: 'with-forced', used_mcp_tool: false }, 0))).toBe(true)
+  })
+})
+
+describe('groupRuns', () => {
+  const runs = [
+    normalizeRun({ ...RUN, session_id: 's1', question_id: 'table-count', condition: 'without', cost_usd: 1 }, 0),
+    normalizeRun({ ...RUN, session_id: 's1', question_id: 'table-count', condition: 'with', cost_usd: 0.5 }, 1),
+    normalizeRun({ ...RUN, session_id: 's2', question_id: 'table-count', condition: 'with', cost_usd: 0.4 }, 2),
+  ]
+
+  it('groups by session, splitting each group by condition', () => {
+    const groups = groupRuns('session', runs)
+    expect(groups).toHaveLength(2)
+    const s1 = groups.find((g) => g.key === 's1')
+    expect(s1.byCondition.without).toHaveLength(1)
+    expect(s1.byCondition.with).toHaveLength(1)
+  })
+
+  it('groups by question from the same runs', () => {
+    const groups = groupRuns('question', runs)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].key).toBe('table-count')
+  })
+
+  it('throws on an unknown level', () => {
+    expect(() => groupRuns('bogus', runs)).toThrow()
+  })
+
+  it('every run in the input ends up in exactly one condition bucket', () => {
+    const groups = groupRuns('session', runs)
+    const total = groups.reduce(
+      (sum, g) => sum + CONDITIONS.reduce((s, c) => s + g.byCondition[c].length, 0),
+      0,
+    )
+    expect(total).toBe(runs.length)
+  })
+})
+
+describe('aggregateGroup', () => {
+  it('computes n, median cost, mean accuracy and mean noise', () => {
+    const runs = [
+      normalizeRun({ ...RUN, cost_usd: 1, accuracy: 1, noise_rate: 0 }, 0),
+      normalizeRun({ ...RUN, cost_usd: 3, accuracy: 0, noise_rate: 1 }, 1),
+    ]
+    const agg = aggregateGroup(runs)
+    expect(agg.n).toBe(2)
+    expect(agg.cost).toBe(2)
+    expect(agg.accuracy).toBeCloseTo(0.5)
+    expect(agg.noise).toBeCloseTo(0.5)
+  })
+
+  it('counts skipped (MCP available, known not called) runs', () => {
+    const runs = [
+      normalizeRun({ ...RUN, condition: 'with', used_mcp_tool: false }, 0),
+      normalizeRun({ ...RUN, condition: 'with', used_mcp_tool: true }, 1),
+    ]
+    expect(aggregateGroup(runs).skipped).toBe(1)
+  })
+
+  it('returns a zeroed shape for an empty group rather than NaN', () => {
+    expect(aggregateGroup([])).toEqual({ n: 0, cost: 0, accuracy: 0, noise: 0, skipped: 0 })
   })
 })
 

@@ -1087,6 +1087,37 @@
   font-weight: 600;
 }
 
+.bubble-chart-frame {
+  position: relative;
+}
+
+.bubble-zoom-rect {
+  fill: rgba(35, 230, 209, 0.12);
+  stroke: rgba(35, 230, 209, 0.6);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.bubble-zoom-reset {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.bubble-zoom-reset:hover {
+  color: var(--text-h);
+}
+
 .benchmark-legend {
   display: flex;
   flex-wrap: wrap;

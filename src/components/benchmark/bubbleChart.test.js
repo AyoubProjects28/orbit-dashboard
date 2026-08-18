@@ -4,12 +4,16 @@ import {
   RADIUS,
   batchBoundaries,
   bubbleRadius,
+  conditionOffset,
   formatClock,
   formatCost,
   formatDay,
+  groupStep,
+  groupX,
   plotHeight,
   plotWidth,
   rankX,
+  truncateLabel,
   valueY,
 } from './bubbleChart'
 
@@ -59,6 +63,53 @@ describe('rankX', () => {
   it('keeps the extreme bubbles inside the frame', () => {
     expect(rankX(0, 16)).toBeGreaterThan(GEOM.padLeft)
     expect(rankX(15, 16)).toBeLessThan(GEOM.padLeft + plotWidth())
+  })
+})
+
+describe('groupX / groupStep', () => {
+  it('centers the single group when there is only one', () => {
+    expect(groupX(0, 1)).toBeCloseTo(GEOM.padLeft + plotWidth() / 2)
+  })
+
+  it('spaces groups evenly across the plot width', () => {
+    const first = groupX(0, 4)
+    const step = groupStep(4)
+    expect(groupX(1, 4) - first).toBeCloseTo(step)
+    expect(groupX(2, 4) - groupX(1, 4)).toBeCloseTo(step)
+  })
+})
+
+describe('conditionOffset', () => {
+  it('is 0 (centered) when only one condition is plotted', () => {
+    expect(conditionOffset(0, 1, 100)).toBe(0)
+  })
+
+  it('spreads 3 conditions symmetrically around the group center', () => {
+    const offsets = [0, 1, 2].map((i) => conditionOffset(i, 3, 100))
+    expect(offsets[0]).toBeLessThan(0)
+    expect(offsets[1]).toBe(0)
+    expect(offsets[2]).toBeGreaterThan(0)
+    expect(offsets[2]).toBeCloseTo(-offsets[0])
+  })
+
+  it('never exceeds the 26px cap regardless of slot width', () => {
+    expect(Math.abs(conditionOffset(0, 3, 10000))).toBeLessThanOrEqual(26)
+  })
+})
+
+describe('truncateLabel', () => {
+  it('leaves a short label untouched', () => {
+    expect(truncateLabel('table-count')).toBe('table-count')
+  })
+
+  it('truncates a long label with an ellipsis', () => {
+    const truncated = truncateLabel('A'.repeat(40), 10)
+    expect(truncated).toHaveLength(10)
+    expect(truncated.endsWith('…')).toBe(true)
+  })
+
+  it('never throws on a non-string label', () => {
+    expect(truncateLabel(undefined)).toBe('')
   })
 })
 
