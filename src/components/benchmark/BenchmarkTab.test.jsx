@@ -119,4 +119,39 @@ describe('BenchmarkTab', () => {
     await waitFor(() => expect(container.querySelectorAll('[data-testid="bubble"]')).toHaveLength(2))
     expect(screen.getByText(/old.jsonl/)).toBeInTheDocument()
   })
+
+  it('keeps the Group by control in the DOM on Accuracy/Noise, but hidden on screen (not shipped yet)', async () => {
+    // .hidden -> display:none in App.css, which isn't loaded in this test
+    // environment, so toBeVisible() can't see it either way here — assert
+    // the structural marker (the class itself) instead.
+    const { container } = render(<BenchmarkTab />)
+    await upload(JSONL)
+    await waitFor(() => expect(screen.getByText('Group by')).toBeInTheDocument())
+    expect(container.querySelector('.toolbar.hidden')).toContainElement(screen.getByText('Group by'))
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Noise' }))
+    expect(screen.getByText('Group by')).toBeInTheDocument()
+    expect(container.querySelector('.toolbar.hidden')).toContainElement(screen.getByText('Group by'))
+  })
+
+  it('has no Group by control at all (not even hidden) on the Families sub-tab — the family cards already group everything', async () => {
+    render(<BenchmarkTab />)
+    await upload(JSONL)
+    await waitFor(() => expect(screen.getByText('Group by')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Families' }))
+    expect(screen.queryByText('Group by')).not.toBeInTheDocument()
+  })
+
+  it('the grouping still works under the hood once re-enabled (2 runs, different sessions -> regrouped under their own session key)', async () => {
+    const { container } = render(<BenchmarkTab />)
+    await upload(JSONL)
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="bubble"]')).toHaveLength(2))
+
+    await userEvent.click(screen.getByText('Session'))
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-testid="bubble"]')).toHaveLength(0)
+      expect(container.querySelectorAll('[data-testid="bubble-group"]')).toHaveLength(2)
+    })
+  })
 })

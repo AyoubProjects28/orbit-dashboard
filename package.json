@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "server": "node nasa-back/index.js",
+    "backfill-report": "node nasa-back/backfillReport.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

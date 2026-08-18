@@ -14,6 +14,7 @@ export async function run({ message, tools = [], callTool, apiKey, model }) {
     name: t.name, description: t.description ?? '', input_schema: t.inputSchema ?? { type: 'object', properties: {} },
   }))
   const messages = [{ role: 'user', content: message }]
+  const toolsCalled = []
   let reply = '', calls = 0, inTok = 0, outTok = 0
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     const r = await axios.post(API, { model, max_tokens: 1024, tools: anthTools, messages }, {
@@ -31,6 +32,7 @@ export async function run({ message, tools = [], callTool, apiKey, model }) {
     }
     const results = []
     for (const tu of toolUses) {
+      toolsCalled.push(tu.name)
       const out = await callTool(tu.name, tu.input)
       const text = typeof out === 'string' ? out : JSON.stringify(out.content ?? out)
       results.push({ type: 'tool_result', tool_use_id: tu.id, content: text })
@@ -41,6 +43,7 @@ export async function run({ message, tools = [], callTool, apiKey, model }) {
   const cost = inTok * PRICE_IN + outTok * PRICE_OUT
   return {
     reply,
+    toolsCalled,
     turnMetrics: {
       provider_kind: 'tokens',
       prompt_tokens: inTok, completion_tokens: outTok, total_tokens: inTok + outTok,

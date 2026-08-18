@@ -12,6 +12,7 @@ export async function run({ message, tools = [], callTool, baseUrl, model, vm })
     function: { name: t.name, description: t.description ?? '', parameters: t.inputSchema ?? { type: 'object', properties: {} } },
   }))
   const messages = [{ role: 'user', content: message }]
+  const toolsCalled = []
   let reply = '', calls = 0, pTok = 0, cTok = 0, load = 0, pe = 0, gen = 0
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     const post = () => axios.post(`${baseUrl}/api/chat`, { model, messages, tools: ollamaTools, stream: false }, { timeout: 120000 })
@@ -40,6 +41,7 @@ export async function run({ message, tools = [], callTool, baseUrl, model, vm })
     messages.push(am)
     if (!am.tool_calls?.length) { reply = am.content; break }
     for (const tc of am.tool_calls) {
+      toolsCalled.push(tc.function.name)
       const out = await callTool(tc.function.name, tc.function.arguments)
       messages.push({ role: 'tool', content: JSON.stringify(out.content ?? out) })
     }
@@ -48,6 +50,7 @@ export async function run({ message, tools = [], callTool, baseUrl, model, vm })
   const llm = load + pe + gen
   return {
     reply,
+    toolsCalled,
     turnMetrics: {
       provider_kind: 'infra',
       prompt_tokens: pTok, completion_tokens: cTok, total_tokens: pTok + cTok,

@@ -12,6 +12,8 @@ export async function run({ message, url }) {
   const outTok = d.output_tokens || d.completion_tokens || 0
   return {
     reply: d.reply ?? d.response ?? (typeof d === 'string' ? d : JSON.stringify(d)),
+    // Lambda takes no `tools`/`callTool` — it never calls the MCP itself.
+    toolsCalled: [],
     turnMetrics: {
       provider_kind: 'tokens',
       prompt_tokens: inTok, completion_tokens: outTok, total_tokens: inTok + outTok,
